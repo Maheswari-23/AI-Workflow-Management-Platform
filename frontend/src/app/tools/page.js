@@ -1,43 +1,62 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ToolsSidebar from '../../components/ToolsSidebar';
 import ToolsMainPanel from '../../components/ToolsMainPanel';
 
-// Demo initial tools
-const initialTools = [
-  { id: 'tool-1', name: 'Web Scraper', type: 'script', description: 'Scrape URLs to markdown', endpoint: './scripts/scrape.py', status: 'active' },
-  { id: 'tool-2', name: 'Wikipedia Search', type: 'api', description: 'Query wikipedia articles', endpoint: 'https://en.wikipedia.org/w/api.php', status: 'active' },
-];
-
 export default function ToolsPage() {
-  const [tools, setTools] = useState(initialTools);
+  const [tools, setTools] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleToolSelect = (tool) => {
-    setSelectedTool(tool);
+  useEffect(() => {
+    fetchTools();
+  }, []);
+
+  const fetchTools = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/tools');
+      const data = await res.json();
+      setTools(data.tools || []);
+    } catch (err) {
+      console.error('Error fetching tools:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleToolCreate = (newTool) => {
-    setTools([...tools, newTool]);
-    setSelectedTool(newTool);
+  const handleToolCreate = async (toolData) => {
+    try {
+      const res = await fetch('/api/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: toolData.name, type: toolData.type || 'api' }),
+      });
+      const data = await res.json();
+      if (data.tool) {
+        setTools(prev => [data.tool, ...prev]);
+        setSelectedTool(data.tool);
+      }
+    } catch (err) {
+      console.error('Error creating tool:', err);
+    }
   };
 
   const handleToolSave = (updatedTool) => {
-    setTools((prev) => 
-      prev.map((t) => t.id === updatedTool.id ? updatedTool : t)
-    );
+    setTools(prev => prev.map(t => t.id === updatedTool.id ? updatedTool : t));
     setSelectedTool(updatedTool);
   };
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
-      <ToolsSidebar 
+      <ToolsSidebar
         tools={tools}
         selectedTool={selectedTool}
-        onToolSelect={handleToolSelect}
+        onToolSelect={setSelectedTool}
         onToolCreate={handleToolCreate}
+        isLoading={isLoading}
       />
-      <ToolsMainPanel 
+      <ToolsMainPanel
         selectedTool={selectedTool}
         onSave={handleToolSave}
       />

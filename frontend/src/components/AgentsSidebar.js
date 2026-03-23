@@ -16,14 +16,14 @@ const navLinks = [
   { href: '/settings/llms', label: 'LLM Settings', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /> },
 ];
 
-export default function AgentsSidebar({ agents, selectedAgent, onAgentSelect, onAgentCreate, isLoading }) {
+export default function AgentsSidebar({ agents, selectedAgent, onAgentSelect, onAgentCreate, onAgentDelete, isLoading }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
 
   const handleCreate = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onAgentCreate({ id: Date.now(), name, status: 'offline', skillFile: null, systemPrompt: '' });
+    onAgentCreate({ name });
     setName('');
     setShowForm(false);
   };
@@ -76,17 +76,25 @@ export default function AgentsSidebar({ agents, selectedAgent, onAgentSelect, on
           </div>
         ) : agents.map((agent) => (
           <div key={agent.id} onClick={() => onAgentSelect(agent)}
-            className="p-3 rounded-xl cursor-pointer mb-1.5 transition-all duration-150"
+            className="p-3 rounded-xl cursor-pointer mb-1.5 transition-all duration-150 relative group"
             style={selectedAgent?.id === agent.id
               ? { background: LL, border: `1.5px solid ${L}` }
               : { background: '#fafafa', border: '1.5px solid transparent' }}
             onMouseEnter={(e) => { if (selectedAgent?.id !== agent.id) { e.currentTarget.style.background = '#f9f5ff'; e.currentTarget.style.borderColor = LB; }}}
             onMouseLeave={(e) => { if (selectedAgent?.id !== agent.id) { e.currentTarget.style.background = '#fafafa'; e.currentTarget.style.borderColor = 'transparent'; }}}>
-            <h3 className="font-medium text-sm" style={{ color: TH }}>{agent.name}</h3>
+            <h3 className="font-medium text-sm pr-6" style={{ color: TH }}>{agent.name}</h3>
             <div className="flex items-center mt-1">
               <span className={`w-2 h-2 rounded-full mr-2 ${agent.status === 'online' ? 'bg-green-400' : 'bg-gray-300'}`}></span>
               <span className="text-xs capitalize" style={{ color: TM }}>{agent.status}</span>
             </div>
+            {onAgentDelete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onAgentDelete(agent.id); }}
+                className="absolute top-2 right-2 w-5 h-5 rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                style={{ background: '#fee2e2', color: '#ef4444' }}
+                title="Delete agent"
+              >×</button>
+            )}
           </div>
         ))}
       </div>

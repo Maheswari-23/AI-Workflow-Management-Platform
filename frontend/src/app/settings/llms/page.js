@@ -3,49 +3,82 @@ import { useState, useEffect } from 'react';
 import LLMSidebar from '../../../components/LLMSidebar';
 import LLMConfigPanel from '../../../components/LLMConfigPanel';
 
-const initialProviders = [
-  { id: 'openai', name: 'OpenAI', defaultBaseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4-turbo-preview', configured: false },
-  { id: 'anthropic', name: 'Anthropic', defaultBaseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-opus-20240229', configured: false },
-  { id: 'google', name: 'Google Gemini', defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-1.5-pro-latest', configured: false },
-  { id: 'groq', name: 'Groq', defaultBaseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'mixtral-8x7b-32768', configured: false },
-  { id: 'custom', name: 'Custom Strategy', defaultBaseUrl: 'http://localhost:8080/v1', defaultModel: 'llama3', configured: false }
-];
-
 export default function LLMSettingsPage() {
-  const [providers, setProviders] = useState(initialProviders);
+  const [providers, setProviders] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // In a real application, we would fetch existing configurations from the backend here
-  // useEffect(() => { fetchProviders(); }, []);
+  useEffect(() => {
+    fetchProviders();
+  }, []);
 
-  const handleProviderSelect = (provider) => {
-    setSelectedProvider(provider);
+  const fetchProviders = async () => {
+    try {
+      const res = await fetch('/api/llm/providers');
+      const data = await res.json();
+      setProviders(data.providers || []);
+    } catch (err) {
+      console.error('Error fetching providers:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleProviderSave = (updatedProvider) => {
-    setProviders((prev) => 
-      prev.map((p) => p.id === updatedProvider.id ? updatedProvider : p)
-    );
-    setSelectedProvider(updatedProvider);
-    
-    // Here we would actually save to the backend:
-    // fetch('/api/llm/settings', { method: 'POST', body: JSON.stringify(updatedProvider) })
+  const handleProviderSave = async (updatedProvider) => {
+    try {
+      const res = await fetch('/api/llm/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: updatedProvider.name,
+          api_key: updatedProvider.apiKey,
+          base_url: updatedProvider.baseUrl,
+          model: updatedProvider.model,
+          temperature: updatedProvider.temperature,
+          max_tokens: updatedProvider.maxTokens,
+        }),
+      });
+      const data = await res.json();
+      if (data.provider) {
+        setProviders(prev => prev.map(p => p.name === updatedProvider.name ? data.provider : p));
+        setSelectedProvider(data.provider);
+        alert('Provider configuration saved!');
+      }
+    } catch (err) {
+      alert('Error saving: ' + err.message);
+    }
+  };
+
+  const handleTestConnection = async (providerName) => {
+    try {
+      const res = await fetch('/api/llm/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider_name: providerName }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Connection successful!\nResponse: ${data.response}`);
+      } else {
+        alert(`❌ Connection failed: ${data.error}`);
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
   };
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
-      {/* 
-        We use similar layout as AgentsPage: a flex container with h-screen
-        Sidebar for selection, main panel for configuration.
-      */}
-      <LLMSidebar 
+      <LLMSidebar
         providers={providers}
         selectedProvider={selectedProvider}
-        onProviderSelect={handleProviderSelect}
+        onProviderSelect={setSelectedProvider}
+        isLoading={isLoading}
       />
-      <LLMConfigPanel 
+      <LLMConfigPanel
         selectedProvider={selectedProvider}
         onSave={handleProviderSave}
+        onTestConnection={handleTestConnection}
       />
     </div>
   );

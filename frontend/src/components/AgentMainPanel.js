@@ -6,42 +6,74 @@ const L = '#b57bee', LL = '#f3e8ff', LB = '#e9d5ff', TH = '#1e0a35', TM = '#9b87
 const card = { background: '#fff', border: `1.5px solid ${LB}`, borderRadius: '16px', padding: '20px' };
 const inp = { width: '100%', padding: '10px 14px', border: `1.5px solid ${LB}`, borderRadius: '10px', background: '#fff', color: TH, fontSize: '14px', resize: 'none' };
 
-export default function AgentMainPanel({ selectedAgent, onAgentUpdate }) {
+export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAgent }) {
   const [skillFile, setSkillFile] = useState(null);
-  const [systemPrompt, setSystemPrompt] = useState(selectedAgent?.systemPrompt || '');
+  const [systemPrompt, setSystemPrompt] = useState(selectedAgent?.system_prompt || '');
   const [samplePrompt, setSamplePrompt] = useState('');
   const [executionResult, setExecutionResult] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Sync system prompt when agent changes
+  const currentSP = selectedAgent?.system_prompt || '';
+  if (systemPrompt !== currentSP && !isSaving) {
+    setSystemPrompt(currentSP);
+  }
 
   const handleSkillFileUpload = (e) => {
     const file = e.target.files[0];
     file?.name.endsWith('.md') ? setSkillFile(file) : alert('Please upload a .md file');
   };
+
   const checkAvailability = async () => {
     if (!selectedAgent) return;
-    try { const r = await fetch(`/api/agents/${selectedAgent.id}/status`); const d = await r.json(); alert(`Status: ${d.status}`); }
-    catch { alert('Error checking availability'); }
+    try {
+      const r = await fetch(`/api/agents/${selectedAgent.id}/status`);
+      const d = await r.json();
+      alert(`Agent "${d.name}" Status: ${d.status}`);
+    } catch {
+      alert('Error checking availability');
+    }
   };
+
+  const handleSavePrompt = async () => {
+    if (!selectedAgent || !onSaveAgent) return;
+    setIsSaving(true);
+    try {
+      await onSaveAgent(selectedAgent.id, { system_prompt: systemPrompt });
+    } catch (err) {
+      alert('Error saving: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDryRun = async () => {
     if (!samplePrompt.trim()) { alert('Enter a sample prompt'); return; }
     setIsDryRun(true);
-    setExecutionResult('Dry run started...\n\n1. Processing prompt...\n2. Analyzing task...\n3. Generating response...\n\nDry run completed!');
-    setTimeout(() => setIsDryRun(false), 2000);
+    setExecutionResult('Dry run started...\n\n1. Processing prompt...\n2. Analyzing task...\n3. Generating response...\n\nDry run completed successfully!');
+    setTimeout(() => setIsDryRun(false), 1500);
   };
+
   const handleExecute = async () => {
     if (!samplePrompt.trim()) { alert('Enter a sample prompt'); return; }
-    setIsExecuting(true); setExecutionResult('Executing...');
+    setIsExecuting(true);
+    setExecutionResult('Executing...');
     try {
-      const r = await fetch(`http://localhost:5000/api/agents/${selectedAgent.id}/execute`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const r = await fetch(`/api/agents/${selectedAgent.id}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: samplePrompt, systemPrompt, skillFile: skillFile?.name }),
       });
       const d = await r.json();
       setExecutionResult(d.result || 'Execution completed.');
-    } catch (err) { setExecutionResult('Error: ' + err.message); }
-    finally { setIsExecuting(false); }
+    } catch (err) {
+      setExecutionResult('Error: ' + err.message);
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   if (!selectedAgent) return <DashboardContent />;
@@ -71,7 +103,14 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate }) {
           </div>
 
           <div style={card}>
-            <h3 className="text-sm font-bold mb-3" style={{ color: TH }}>System Instructions</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold" style={{ color: TH }}>System Instructions</h3>
+              <button onClick={handleSavePrompt} disabled={isSaving}
+                className="px-3 py-1 text-xs font-semibold text-white rounded-lg hover:opacity-85 disabled:opacity-50"
+                style={{ background: L }}>
+                {isSaving ? 'Saving...' : 'Save Prompt'}
+              </button>
+            </div>
             <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
               placeholder="Enter system instructions for this agent..." rows={4} style={inp} />
           </div>
