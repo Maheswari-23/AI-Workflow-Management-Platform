@@ -2,13 +2,18 @@ const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 const workflowRunner = require('../engine/workflowRunner');
+const safeParse = require('../utils/safeParse');
 
 // GET all tasks
 router.get('/', async (req, res) => {
   try {
     const tasks = await dbAll('SELECT * FROM tasks ORDER BY created_at DESC');
-    // Parse agents JSON array
-    const parsed = tasks.map(t => ({ ...t, agents: JSON.parse(t.agents || '[]') }));
+    // Parse agents JSON array safely
+    const parsed = tasks.map(t => ({ 
+      ...t, 
+      agents: safeParse(t.agents, []),
+      workflow_steps: safeParse(t.workflow_steps, [])
+    }));
     res.json({ tasks: parsed });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -20,7 +25,12 @@ router.get('/:id', async (req, res) => {
   try {
     const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    res.json({ task: { ...task, agents: JSON.parse(task.agents || '[]') } });
+    const parsed = {
+      ...task,
+      agents: safeParse(task.agents, []),
+      workflow_steps: safeParse(task.workflow_steps, [])
+    };
+    res.json({ task: parsed });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

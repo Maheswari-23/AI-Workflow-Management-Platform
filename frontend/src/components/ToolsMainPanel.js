@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import DashboardContent from './DashboardContent';
+import { toast } from './Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 const card={background:'#fff',border:`1.5px solid ${LB}`,borderRadius:'16px',padding:'20px'};
@@ -36,10 +37,10 @@ export default function ToolsMainPanel({ selectedTool, onSave }) {
       const data = await res.json();
       if (data.tool) {
         onSave(data.tool);
-        alert('Tool saved successfully!');
+        toast.success('Tool configuration saved!');
       }
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      toast.error('Error saving: ' + err.message);
     } finally {
       setIsSaving(false);
     }

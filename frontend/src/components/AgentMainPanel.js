@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import DashboardContent from './DashboardContent';
+import { toast } from './Toast';
 
 const L = '#b57bee', LL = '#f3e8ff', LB = '#e9d5ff', TH = '#1e0a35', TM = '#9b87ba';
 const card = { background: '#fff', border: `1.5px solid ${LB}`, borderRadius: '16px', padding: '20px' };
@@ -31,9 +32,9 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
     try {
       const r = await fetch(`/api/agents/${selectedAgent.id}/status`);
       const d = await r.json();
-      alert(`Agent "${d.name}" Status: ${d.status}`);
+      toast.info(`Agent "${d.name}" is ${d.status}`);
     } catch {
-      alert('Error checking availability');
+      toast.error('Error checking availability');
     }
   };
 
@@ -42,22 +43,23 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
     setIsSaving(true);
     try {
       await onSaveAgent(selectedAgent.id, { system_prompt: systemPrompt });
+      toast.success('System prompt saved!');
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      toast.error('Error saving: ' + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDryRun = async () => {
-    if (!samplePrompt.trim()) { alert('Enter a sample prompt'); return; }
+    if (!samplePrompt.trim()) { toast.info('Enter a sample prompt first'); return; }
     setIsDryRun(true);
     setExecutionResult('Dry run started...\n\n1. Processing prompt...\n2. Analyzing task...\n3. Generating response...\n\nDry run completed successfully!');
     setTimeout(() => setIsDryRun(false), 1500);
   };
 
   const handleExecute = async () => {
-    if (!samplePrompt.trim()) { alert('Enter a sample prompt'); return; }
+    if (!samplePrompt.trim()) { toast.info('Enter a sample prompt first'); return; }
     setIsExecuting(true);
     setExecutionResult('Executing...');
     try {

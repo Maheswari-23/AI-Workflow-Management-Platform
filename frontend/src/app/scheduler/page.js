@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import SchedulerMainPanel from '../../components/SchedulerMainPanel';
+import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -38,8 +39,9 @@ export default function SchedulerPage() {
         setSelectedSchedule(data.schedule);
         setNewName('');
         setShowForm(false);
+        toast.success(`Schedule "${data.schedule.name}" created!`);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to create schedule: ' + err.message); }
   };
 
   const handleUpdate = (updatedSchedule) => {
@@ -47,7 +49,23 @@ export default function SchedulerPage() {
     setSelectedSchedule(updatedSchedule);
   };
 
-  const statusColor = { active: { bg: '#d1fae5', color: '#065f46' }, paused: { bg: '#fef3c7', color: '#92400e' }, inactive: { bg: '#f3f4f6', color: '#6b7280' } };
+  const handleDelete = async (id, name, e) => {
+    e.stopPropagation();
+    const ok = await confirm(`Delete schedule "${name}"?`);
+    if (!ok) return;
+    try {
+      await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
+      setSchedules(prev => prev.filter(s => s.id !== id));
+      if (selectedSchedule?.id === id) setSelectedSchedule(null);
+      toast.success('Schedule deleted.');
+    } catch (err) { toast.error('Delete failed: ' + err.message); }
+  };
+
+  const statusColor = {
+    active:   { bg: '#d1fae5', color: '#065f46' },
+    paused:   { bg: '#fef3c7', color: '#92400e' },
+    inactive: { bg: '#f3f4f6', color: '#6b7280' },
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
@@ -83,16 +101,16 @@ export default function SchedulerPage() {
             <table className="min-w-full text-left">
               <thead>
                 <tr style={{ background: LL }}>
-                  {['Name', 'Trigger', 'Cron', 'Status'].map(col => (
+                  {['Name', 'Task', 'Trigger', 'Cron', 'Status', 'Actions'].map(col => (
                     <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan="4" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading schedules...</td></tr>
+                  <tr><td colSpan="6" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading schedules...</td></tr>
                 ) : schedules.length === 0 ? (
-                  <tr><td colSpan="4" className="px-5 py-14 text-center" style={{ color: TM }}>No schedules yet. Click "+ New Schedule" to create one.</td></tr>
+                  <tr><td colSpan="6" className="px-5 py-14 text-center" style={{ color: TM }}>No schedules yet. Click "+ New Schedule" to create one.</td></tr>
                 ) : schedules.map(s => (
                   <tr key={s.id} onClick={() => setSelectedSchedule(selectedSchedule?.id === s.id ? null : s)}
                     className="cursor-pointer"
@@ -101,6 +119,9 @@ export default function SchedulerPage() {
                     onMouseLeave={e => { if (selectedSchedule?.id !== s.id) e.currentTarget.style.background = 'transparent'; }}>
                     <td className="px-5 py-3">
                       <span className="text-sm font-semibold" style={{ color: TH }}>{s.name}</span>
+                    </td>
+                    <td className="px-5 py-3 text-xs" style={{ color: TM }}>
+                      {s.task_name || <span style={{ color: '#d1d5db' }}>Not assigned</span>}
                     </td>
                     <td className="px-5 py-3">
                       <span className="text-xs px-2.5 py-0.5 rounded-full font-medium uppercase"
@@ -112,6 +133,11 @@ export default function SchedulerPage() {
                         style={statusColor[s.status] || { background: '#f3f4f6', color: '#6b7280' }}>
                         {s.status || 'inactive'}
                       </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <button onClick={(e) => handleDelete(s.id, s.name, e)}
+                        className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
+                        style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
                     </td>
                   </tr>
                 ))}

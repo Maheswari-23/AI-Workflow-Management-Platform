@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import DashboardContent from './DashboardContent';
+import { toast } from './Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 const card={background:'#fff',border:`1.5px solid ${LB}`,borderRadius:'16px',padding:'24px'};
@@ -54,10 +55,10 @@ export default function SchedulerMainPanel({ selectedSchedule, onSave }) {
       const data = await res.json();
       if (data.schedule) {
         onSave(data.schedule);
-        alert('Schedule saved and cron updated!');
+        toast.success('Schedule saved!');
       }
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      toast.error('Error saving: ' + err.message);
     } finally {
       setIsSaving(false);
     }

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import TaskMainPanel from '../../components/TaskMainPanel';
+import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -38,8 +39,9 @@ export default function TasksPage() {
         setSelectedTask(data.task);
         setNewName('');
         setShowForm(false);
+        toast.success(`Task "${data.task.name}" created!`);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to create task: ' + err.message); }
   };
 
   const handleTaskUpdate = (updatedTask) => {
@@ -47,17 +49,24 @@ export default function TasksPage() {
     setSelectedTask(updatedTask);
   };
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, name, e) => {
     e.stopPropagation();
-    if (!confirm('Delete this task?')) return;
+    const ok = await confirm(`Delete task "${name}"? This cannot be undone.`);
+    if (!ok) return;
     try {
       await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
       setTasks(prev => prev.filter(t => t.id !== id));
       if (selectedTask?.id === id) setSelectedTask(null);
-    } catch (err) { console.error(err); }
+      toast.success('Task deleted.');
+    } catch (err) { toast.error('Delete failed: ' + err.message); }
   };
 
-  const statusColor = { draft: { bg: LL, color: L }, saved: { bg: '#d1fae5', color: '#065f46' }, completed: { bg: '#d1fae5', color: '#065f46' }, running: { bg: '#fef3c7', color: '#92400e' } };
+  const statusColor = {
+    draft:     { bg: LL, color: L },
+    saved:     { bg: '#d1fae5', color: '#065f46' },
+    completed: { bg: '#d1fae5', color: '#065f46' },
+    running:   { bg: '#fef3c7', color: '#92400e' },
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
@@ -77,7 +86,6 @@ export default function TasksPage() {
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
         <div className="max-w-7xl mx-auto">
 
-          {/* Create form inline */}
           {showForm && (
             <div className="mb-5 p-4 rounded-2xl" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
               <form onSubmit={handleCreate} className="flex gap-3 items-center">
@@ -90,7 +98,6 @@ export default function TasksPage() {
             </div>
           )}
 
-          {/* Tasks table */}
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
               <thead>
@@ -124,7 +131,7 @@ export default function TasksPage() {
                       {Array.isArray(task.agents) ? task.agents.length : 0} assigned
                     </td>
                     <td className="px-5 py-3">
-                      <button onClick={(e) => handleDelete(task.id, e)}
+                      <button onClick={(e) => handleDelete(task.id, task.name, e)}
                         className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
                         style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
                     </td>
@@ -134,7 +141,6 @@ export default function TasksPage() {
             </table>
           </div>
 
-          {/* Inline detail panel */}
           {selectedTask && (
             <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
               <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>

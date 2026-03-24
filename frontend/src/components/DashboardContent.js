@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const LILAC = '#b57bee';
@@ -17,12 +18,44 @@ const cards = [
 ];
 
 export default function DashboardContent() {
+  const [stats, setStats] = useState({ agents: '—', tasks: '—', runs: '—', schedules: '—' });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [agentsRes, tasksRes, schedulesRes, historyRes] = await Promise.all([
+          fetch('/api/agents'),
+          fetch('/api/tasks'),
+          fetch('/api/schedules'),
+          fetch('/api/history?limit=1000'),
+        ]);
+        const [agentsData, tasksData, schedulesData, historyData] = await Promise.all([
+          agentsRes.json(), tasksRes.json(), schedulesRes.json(), historyRes.json(),
+        ]);
+        setStats({
+          agents:    (agentsData.agents || []).length,
+          tasks:     (tasksData.tasks || []).length,
+          schedules: (schedulesData.schedules || []).filter(s => s.status === 'active').length,
+          runs:      (historyData.history || []).length,
+        });
+      } catch (e) { /* stats just stay as dashes */ }
+    };
+    fetchStats();
+  }, []);
+
+  const statItems = [
+    { label: 'Agents', value: stats.agents, color: LILAC },
+    { label: 'Tasks', value: stats.tasks, color: '#8b5cf6' },
+    { label: 'Active Schedules', value: stats.schedules, color: '#059669' },
+    { label: 'Total Runs', value: stats.runs, color: '#d97706' },
+  ];
+
   return (
-    <div className="flex-1 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 overflow-y-auto" style={{ background: '#fff' }}>
+    <div className="flex-1 flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8 overflow-y-auto" style={{ background: '#fff' }}>
       <div className="max-w-5xl w-full">
 
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center mb-10">
           <h1 className="text-5xl font-extrabold tracking-tight mb-4" style={{ color: TEXT_HEADING }}>
             AI Workflow{' '}
             <span style={{ color: LILAC }}>Management</span>
@@ -30,6 +63,17 @@ export default function DashboardContent() {
           <p className="text-lg max-w-2xl mx-auto" style={{ color: TEXT_MUTED }}>
             Centralized orchestration dashboard to define intelligent agents, map out robust workflows, and automate task scheduling at scale.
           </p>
+        </div>
+
+        {/* Live Stats Bar */}
+        <div className="grid grid-cols-4 gap-4 mb-10">
+          {statItems.map(s => (
+            <div key={s.label} className="rounded-2xl p-5 text-center transition-all duration-200"
+              style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 6px rgba(181,123,238,0.08)' }}>
+              <div className="text-3xl font-extrabold mb-1" style={{ color: s.color }}>{s.value}</div>
+              <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED }}>{s.label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Cards */}

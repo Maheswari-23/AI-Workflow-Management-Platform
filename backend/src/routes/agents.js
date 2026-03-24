@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
-const axios = require('axios');
+const openCode = require('../opencode/client');
+const safeParse = require('../utils/safeParse');
 
 // ─────────────────────────────────────────────
 // CRUD ROUTES

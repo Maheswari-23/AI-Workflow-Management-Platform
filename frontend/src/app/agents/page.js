@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import AgentMainPanel from '../../components/AgentMainPanel';
+import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -38,18 +39,21 @@ export default function AgentsPage() {
         setSelectedAgent(data.agent);
         setNewName('');
         setShowForm(false);
+        toast.success(`Agent "${data.agent.name}" created!`);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to create agent: ' + err.message); }
   };
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, name, e) => {
     e.stopPropagation();
-    if (!confirm('Delete this agent?')) return;
+    const ok = await confirm(`Delete agent "${name}"? This cannot be undone.`);
+    if (!ok) return;
     try {
       await fetch(`/api/agents/${id}`, { method: 'DELETE' });
       setAgents(prev => prev.filter(a => a.id !== id));
       if (selectedAgent?.id === id) setSelectedAgent(null);
-    } catch (err) { console.error(err); }
+      toast.success('Agent deleted.');
+    } catch (err) { toast.error('Delete failed: ' + err.message); }
   };
 
   const handleSaveAgent = async (id, updates) => {
@@ -128,7 +132,7 @@ export default function AgentsPage() {
                       <span className="truncate block">{agent.system_prompt ? agent.system_prompt.slice(0, 60) + '...' : '—'}</span>
                     </td>
                     <td className="px-5 py-3">
-                      <button onClick={(e) => handleDelete(agent.id, e)}
+                      <button onClick={(e) => handleDelete(agent.id, agent.name, e)}
                         className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
                         style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
                     </td>

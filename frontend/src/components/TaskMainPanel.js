@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import DashboardContent from './DashboardContent';
+import { toast } from './Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 const card={background:'#fff',border:`1.5px solid ${LB}`,borderRadius:'16px',padding:'20px'};
@@ -54,11 +55,12 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       const data = await res.json();
       if (data.steps) {
         setFormData(p => ({ ...p, workflow_steps: data.steps }));
+        toast.success('Workflow steps generated!');
       } else {
-        alert('Error generating steps: ' + (data.error || 'Unknown error'));
+        toast.error('Error generating steps: ' + (data.error || 'Unknown error'));
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      toast.error('Error: ' + err.message);
     } finally {
       setIsGenerating(false);
     }
@@ -81,10 +83,10 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       const data = await res.json();
       if (data.task) {
         onTaskUpdate(data.task);
-        alert('Task saved successfully!');
+        toast.success('Task saved successfully!');
       }
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      toast.error('Error saving: ' + err.message);
     } finally {
       setIsSaving(false);
     }

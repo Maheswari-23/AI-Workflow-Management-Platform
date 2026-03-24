@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import ToolsMainPanel from '../../components/ToolsMainPanel';
+import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -38,8 +39,9 @@ export default function ToolsPage() {
         setSelectedTool(data.tool);
         setNewName('');
         setShowForm(false);
+        toast.success(`Tool "${data.tool.name}" created!`);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to create tool: ' + err.message); }
   };
 
   const handleToolSave = (updatedTool) => {
@@ -47,17 +49,23 @@ export default function ToolsPage() {
     setSelectedTool(updatedTool);
   };
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = async (id, name, e) => {
     e.stopPropagation();
-    if (!confirm('Delete this tool?')) return;
+    const ok = await confirm(`Delete tool "${name}"?`);
+    if (!ok) return;
     try {
       await fetch(`/api/tools/${id}`, { method: 'DELETE' });
       setTools(prev => prev.filter(t => t.id !== id));
       if (selectedTool?.id === id) setSelectedTool(null);
-    } catch (err) { console.error(err); }
+      toast.success('Tool deleted.');
+    } catch (err) { toast.error('Delete failed: ' + err.message); }
   };
 
-  const typeColor = { api: { bg: LL, color: L }, script: { bg: '#fef3c7', color: '#92400e' }, database: { bg: '#d1fae5', color: '#065f46' } };
+  const typeColor = {
+    api:      { bg: LL, color: L },
+    script:   { bg: '#fef3c7', color: '#92400e' },
+    database: { bg: '#d1fae5', color: '#065f46' },
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
@@ -120,7 +128,7 @@ export default function ToolsPage() {
                     </td>
                     <td className="px-5 py-3 text-xs font-mono" style={{ color: TM }}>{tool.endpoint || '—'}</td>
                     <td className="px-5 py-3">
-                      <button onClick={(e) => handleDelete(tool.id, e)}
+                      <button onClick={(e) => handleDelete(tool.id, tool.name, e)}
                         className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
                         style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
                     </td>

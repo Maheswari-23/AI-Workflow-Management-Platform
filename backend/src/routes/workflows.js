@@ -1,5 +1,37 @@
-const express = require('express'); 
-const router = express.Router(); 
-router.get('/', (req, res) => res.json({message: 'Workflows API working'})); 
-router.get('/:id', (req, res) => res.json({message: 'Get workflow ' + req.params.id})); 
+const express = require('express');
+const router = express.Router();
+const { dbRun, dbGet, dbAll } = require('../database/db');
+const safeParse = require('../utils/safeParse');
+
+// GET all workflows (backed by tasks with workflow_steps)
+router.get('/', async (req, res) => {
+  try {
+    const tasks = await dbAll("SELECT * FROM tasks WHERE workflow_steps != '' ORDER BY updated_at DESC");
+    const parsed = tasks.map(t => ({ 
+      ...t, 
+      agents: safeParse(t.agents, []),
+      workflow_steps: safeParse(t.workflow_steps, [])
+    }));
+    res.json({ workflows: parsed });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET single workflow
+router.get('/:id', async (req, res) => {
+  try {
+    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    if (!task) return res.status(404).json({ error: 'Workflow not found' });
+    const parsed = {
+      ...task,
+      agents: safeParse(task.agents, []),
+      workflow_steps: safeParse(task.workflow_steps, [])
+    };
+    res.json({ workflow: parsed });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
