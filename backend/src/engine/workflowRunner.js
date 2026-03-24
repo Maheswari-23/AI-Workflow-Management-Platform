@@ -1,14 +1,14 @@
-const axios = require('axios');
 const { dbRun, dbGet, dbAll } = require('../database/db');
+const { getOpenCodeClient } = require('../opencode/client');
+const { getDynamicTools, executeTool } = require('../opencode/toolsAdapter');
 
 /**
- * Core Workflow Engine
- * Runs a task's workflow steps using the assigned agents and LLM.
+ * Core Workflow Engine (OpenCode Powered)
+ * Runs a task's workflow steps using the assigned OpenCode agents and dynamic tools.
  */
 async function run(task, triggerType = 'manual', scheduleId = null) {
   const startTime = Date.now();
 
-  // Create a run history entry with 'running' status
   const historyResult = await dbRun(
     'INSERT INTO run_history (task_id, task_name, schedule_id, trigger_type, status, output) VALUES (?, ?, ?, ?, ?, ?)',
     [task.id, task.name, scheduleId, triggerType, 'running', '']
@@ -16,80 +16,91 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
   const runId = historyResult.lastID;
 
   try {
-    // Parse task fields
     const agentIds = typeof task.agents === 'string' ? JSON.parse(task.agents || '[]') : (task.agents || []);
     const workflowSteps = task.workflow_steps || '';
 
-    let output = `=== Workflow Run Started ===\n`;
-    output += `Task: ${task.name}\n`;
-    output += `Trigger: ${triggerType}\n`;
-    output += `Time: ${new Date().toISOString()}\n\n`;
+    let output = `=== OpenCode Workflow Run Started ===\n`;
+    output += `Task: ${task.name}\nTrigger: ${triggerType}\nTime: ${new Date().toISOString()}\n\n`;
 
-    if (!workflowSteps.trim()) {
-      output += `⚠️ No workflow steps defined. Using task description as the prompt.\n\n`;
-    }
-
-    // Load assigned agents from DB (or use a default)
     let agents = [];
     if (agentIds.length > 0) {
-      agents = await dbAll(
-        `SELECT * FROM agents WHERE id IN (${agentIds.map(() => '?').join(',')})`,
-        agentIds
-      );
+      agents = await dbAll(`SELECT * FROM agents WHERE id IN (${agentIds.map(() => '?').join(',')})`, agentIds);
     }
 
-    const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    if (!GROQ_API_KEY) {
-      throw new Error('GROQ_API_KEY not configured in .env');
+    // 1. Initialize OpenCode Client and Tools adapter
+    // Using Groq as default, but this can easily switch to OpenAI via DB
+    const opencode = await getOpenCodeClient('Groq');
+    
+    // Fetch user-defined APIs as native OpenCode functions
+    const rawTools = await getDynamicTools();
+    const openCodeTools = rawTools.map(t => ({ type: t.type, function: t.function }));
+    
+    if (openCodeTools.length > 0) {
+      output += `Loaded ${openCodeTools.length} Dynamic Tool(s): ${openCodeTools.map(t => t.function.name).join(', ')}\n\n`;
     }
 
-    // Build execution prompt
     const taskPrompt = workflowSteps.trim()
-      ? `You are executing the following workflow for the task "${task.name}".\n\nTask Description: ${task.description}\n\nWorkflow Steps to Execute:\n${workflowSteps}\n\nPlease execute these steps systematically and provide a detailed output report.`
-      : `You are executing the task: "${task.name}".\n\nDescription: ${task.description}\n\nPlease complete this task and provide a detailed output report.`;
+      ? `Task Description: ${task.description}\n\nWorkflow Steps:\n${workflowSteps}\n\nPlease execute these steps systematically.`
+      : `Task Description: ${task.description}\n\nPlease complete this task systematically.`;
 
-    // Build system prompt from first assigned agent, or use default
     const agentSystemPrompt = agents.length > 0 && agents[0].system_prompt
       ? agents[0].system_prompt
-      : 'You are a professional AI workflow executor. Execute the given task systematically, clearly reporting outputs for each step.';
+      : 'You are a professional OpenCode AI workflow executor. Execute the task effectively.';
 
-    if (agents.length > 0) {
-      output += `Assigned Agents: ${agents.map(a => a.name).join(', ')}\n\n`;
+    if (agents.length > 0) output += `Assigned Agent: ${agents[0].name}\n\n`;
+
+    output += `--- Executing OpenCode Engine ---\n`;
+
+    let messages = [
+      { role: 'system', content: agentSystemPrompt },
+      { role: 'user', content: taskPrompt },
+    ];
+
+    // 2. Execute First OpenCode Pass
+    output += 'Executing initial reasoning pass...\n';
+    let responseData = await opencode.generate(messages, openCodeTools);
+    let messageOut = responseData.choices[0].message;
+    messages.push(messageOut);
+
+    // 3. Handle Tool Calls / Function chaining
+    if (messageOut.tool_calls && messageOut.tool_calls.length > 0) {
+      output += '\n🔧 OpenCode engine initiated tool calls:\n';
+      
+      for (const toolCall of messageOut.tool_calls) {
+        let args = {};
+        try { args = JSON.parse(toolCall.function.arguments); } catch(e){}
+        
+        output += `  -> Called [${toolCall.function.name}] with Args: ${JSON.stringify(args)}\n`;
+        
+        // Execute the physical API via our toolsAdapter
+        const toolResult = await executeTool(toolCall.function.name, args, rawTools);
+        
+        output += `  <- Tool Returned Data (preview): ${String(toolResult).slice(0, 150)}...\n`;
+        
+        messages.push({
+          tool_call_id: toolCall.id,
+          role: 'tool',
+          name: toolCall.function.name,
+          content: String(toolResult)
+        });
+      }
+
+      // Final pass to synthesize tool results
+      output += '\nProcessing tool outputs via OpenCode...\n';
+      const finalPass = await opencode.generate(messages);
+      output += `\nFinal Report:\n${finalPass.choices[0].message.content}\n`;
+      
     } else {
-      output += `No specific agents assigned. Using default executor agent.\n\n`;
+       // Completed without tools
+       output += `\nFinal Report:\n${messageOut.content}\n`;
     }
 
-    output += `--- Executing Workflow ---\n`;
-
-    // Call LLM
-    const response = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: agentSystemPrompt },
-          { role: 'user', content: taskPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      },
-      { headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' } }
-    );
-
-    const llmOutput = response.data.choices[0].message.content;
-    output += llmOutput;
-    output += `\n\n=== Workflow Completed Successfully ===\n`;
-    output += `Duration: ${((Date.now() - startTime) / 1000).toFixed(2)}s`;
-
+    output += `\n=== OpenCode Workflow Completed ===\n`;
+    
     const duration = Date.now() - startTime;
+    output += `Duration: ${(duration / 1000).toFixed(2)}s`;
 
-    // Update history entry as completed
-    await dbRun(
-      'UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-      ['completed', output, duration, runId]
-    );
-
-    // Update task status
+    await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['completed', output, duration, runId]);
     await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', task.id]);
 
     return { id: runId, status: 'completed', output, duration_ms: duration };
@@ -97,13 +108,8 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
   } catch (err) {
     const duration = Date.now() - startTime;
     const errorMsg = err.response?.data?.error?.message || err.message;
-
-    await dbRun(
-      'UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-      ['failed', errorMsg, duration, runId]
-    );
-
-    console.error('WorkflowRunner error:', errorMsg);
+    await dbRun('UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['failed', errorMsg, duration, runId]);
+    console.error('OpenCode WorkflowRunner error:', errorMsg);
     throw err;
   }
 }

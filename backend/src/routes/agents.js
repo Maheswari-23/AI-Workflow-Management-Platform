@@ -85,88 +85,71 @@ router.get('/:id/status', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// EXECUTE ROUTE — LLM + Tool Calling via Groq
+// EXECUTE ROUTE — OpenCode Engine
 // ─────────────────────────────────────────────
 
-const calculateMath = (expression) => {
-  try {
-    return new Function(`return ${expression}`)();
-  } catch (error) {
-    return 'Error evaluating expression: ' + error.message;
-  }
-};
-
-const tools = [
-  {
-    type: 'function',
-    function: {
-      name: 'calculate_math',
-      description: 'Evaluate simple mathematical expressions. ONLY pass valid JS math expressions.',
-      parameters: {
-        type: 'object',
-        properties: {
-          expression: { type: 'string', description: "The math expression e.g. '45 / 5'" },
-        },
-        required: ['expression'],
-      },
-    },
-  },
-];
+const { getOpenCodeClient } = require('../opencode/client');
+const { getDynamicTools, executeTool } = require('../opencode/toolsAdapter');
 
 router.post('/:id/execute', async (req, res) => {
   const { prompt, systemPrompt } = req.body;
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-  if (!GROQ_API_KEY) {
-    return res.status(401).json({ result: 'ERROR: Missing GROQ_API_KEY in backend/.env' });
-  }
 
   try {
     // Mark agent online during execution
     await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['online', req.params.id]);
 
-    const agentSystemPrompt = systemPrompt || 'You are a helpful AI assistant with access to tools.';
+    const opencode = await getOpenCodeClient(); // Fetches configure LLM from DB
+    const rawTools = await getDynamicTools();
+    const openCodeTools = rawTools.map(t => ({ type: t.type, function: t.function }));
+
+    const agentSystemPrompt = systemPrompt || 'You are a helpful OpenCode AI assistant with access to tools.';
     let messages = [
       { role: 'system', content: agentSystemPrompt },
       { role: 'user', content: prompt },
     ];
-    let executionLog = 'Agent started...\n';
+    let executionLog = '🤖 OpenCode Agent started...\n';
+    
+    if (openCodeTools.length > 0) {
+      executionLog += `Loaded tools: ${openCodeTools.map(t => t.function.name).join(', ')}\n`;
+    }
 
-    const callGroq = async (msgs) =>
-      axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'llama-3.3-70b-versatile', messages: msgs, tools, tool_choice: 'auto', temperature: 0.2 },
-        { headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' } }
-      );
-
-    executionLog += `Sending prompt to LLM: "${prompt}"\n`;
-    const initialResponse = await callGroq(messages);
-    const messageOut = initialResponse.data.choices[0].message;
+    executionLog += `Sending prompt: "${prompt}"\n`;
+    
+    const responseData = await opencode.generate(messages, openCodeTools);
+    const messageOut = responseData.choices[0].message;
     messages.push(messageOut);
 
-    if (messageOut.tool_calls?.length > 0) {
-      executionLog += '\nLLM decided to call a tool!\n';
+    if (messageOut.tool_calls && messageOut.tool_calls.length > 0) {
+      executionLog += '\n⚙️ OpenCode engine decided to call tools!\n';
+      
       for (const toolCall of messageOut.tool_calls) {
-        if (toolCall.function.name === 'calculate_math') {
-          const args = JSON.parse(toolCall.function.arguments);
-          executionLog += `Executing Tool [calculate_math] with args: ${args.expression}\n`;
-          const toolResult = calculateMath(args.expression);
-          executionLog += `Tool returned: ${toolResult}\n\n`;
-          messages.push({ tool_call_id: toolCall.id, role: 'tool', name: toolCall.function.name, content: String(toolResult) });
-        }
+        let args = {};
+        try { args = JSON.parse(toolCall.function.arguments); } catch(e){}
+        
+        executionLog += `  -> Executing Tool [${toolCall.function.name}] with args: ${JSON.stringify(args)}\n`;
+        const toolResult = await executeTool(toolCall.function.name, args, rawTools);
+        executionLog += `  <- Tool returned data.\n`;
+        
+        messages.push({
+          tool_call_id: toolCall.id,
+          role: 'tool',
+          name: toolCall.function.name,
+          content: String(toolResult)
+        });
       }
-      executionLog += 'Sending tool result back to LLM...\n';
-      const finalResponse = await callGroq(messages);
-      executionLog += `\nAgent Final Output:\n${finalResponse.data.choices[0].message.content}`;
+      
+      executionLog += '\nSynthesizing final response...\n';
+      const finalResponse = await opencode.generate(messages);
+      executionLog += `\nAgent Final Output:\n${finalResponse.choices[0].message.content}`;
     } else {
-      executionLog += `\nAgent Final Output (No tools used):\n${messageOut.content}`;
+      executionLog += `\nAgent Final Output:\n${messageOut.content}`;
     }
 
     await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', req.params.id]);
     return res.json({ result: executionLog });
   } catch (error) {
     await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', req.params.id]);
-    console.error('Execution Error:', error.response?.data || error.message);
+    console.error('OpenCode Execution Error:', error);
     return res.status(500).json({
       result: `Execution failed.\n${error.response?.data?.error?.message || error.message}`,
     });
