@@ -8,13 +8,14 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 // Initialize database (creates tables if needed)
 const { db } = require('./src/database/db');
 
+const config = require('./src/config');
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = config.PORT;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+  origin: config.CORS_ORIGIN
 }));
 
 // Trust proxy for rate limiting

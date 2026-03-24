@@ -3,6 +3,7 @@ const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 const workflowRunner = require('../engine/workflowRunner');
 const safeParse = require('../utils/safeParse');
+const { validateSchema, schemas } = require('../utils/validator');
 
 // GET all tasks
 router.get('/', async (req, res) => {
@@ -39,8 +40,10 @@ router.get('/:id', async (req, res) => {
 // POST create task
 router.post('/', async (req, res) => {
   try {
+    const errors = validateSchema(req.body, schemas.TASK_SCHEMA);
+    if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
+
     const { name, description = '', agents = [], workflow_steps = '' } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
     const result = await dbRun(
       'INSERT INTO tasks (name, description, agents, workflow_steps, status) VALUES (?, ?, ?, ?, ?)',
       [name, description, JSON.stringify(agents), workflow_steps, 'draft']

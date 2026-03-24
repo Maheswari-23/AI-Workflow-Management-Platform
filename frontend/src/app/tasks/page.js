@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import TaskMainPanel from '../../components/TaskMainPanel';
+import PageHeader from '../../components/PageHeader';
 import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
@@ -70,18 +71,12 @@ export default function TasksPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: TH }}>Tasks Management</h1>
-          <p className="text-sm mt-0.5" style={{ color: TM }}>Create and configure tasks with agents and workflow steps.</p>
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85"
-          style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
-          + New Task
-        </button>
-      </div>
+      <PageHeader 
+        title="Tasks" 
+        description="Create and configure tasks with agents and workflow steps."
+        buttonText="+ New Task"
+        buttonAction={() => setShowForm(true)}
+      />
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
         <div className="max-w-7xl mx-auto">

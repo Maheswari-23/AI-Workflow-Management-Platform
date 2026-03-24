@@ -3,6 +3,7 @@ const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 const openCode = require('../opencode/client');
 const safeParse = require('../utils/safeParse');
+const { validateSchema, schemas } = require('../utils/validator');
 
 // ─────────────────────────────────────────────
 // CRUD ROUTES
@@ -32,8 +33,10 @@ router.get('/:id', async (req, res) => {
 // POST create agent
 router.post('/', async (req, res) => {
   try {
+    const errors = validateSchema(req.body, schemas.AGENT_SCHEMA);
+    if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
+
     const { name, system_prompt = '', skill_file_name = '' } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
     const result = await dbRun(
       'INSERT INTO agents (name, system_prompt, skill_file_name, status) VALUES (?, ?, ?, ?)',
       [name, system_prompt, skill_file_name, 'offline']

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import AgentMainPanel from '../../components/AgentMainPanel';
+import PageHeader from '../../components/PageHeader';
 import { toast, confirm } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
@@ -71,18 +72,12 @@ export default function AgentsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: TH }}>Agents</h1>
-          <p className="text-sm mt-0.5" style={{ color: TM }}>Create and configure AI agents with skills and system prompts.</p>
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85"
-          style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
-          + New Agent
-        </button>
-      </div>
+      <PageHeader 
+        title="Agents" 
+        description="Create and configure AI agents with skills and system prompts."
+        buttonText="+ New Agent"
+        buttonAction={() => setShowForm(true)}
+      />
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
         <div className="max-w-7xl mx-auto">

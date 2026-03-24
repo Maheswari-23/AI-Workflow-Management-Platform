@@ -1,8 +1,6 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const config = require('../config');
 
-const DB_PATH = process.env.DB_PATH || './data/workflow.db';
+const DB_PATH = config.DB_PATH;
 const dbDir = path.dirname(path.resolve(DB_PATH));
 
 // Ensure data directory exists

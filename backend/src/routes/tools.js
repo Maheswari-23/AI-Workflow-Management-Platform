@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
+const { validateSchema, schemas } = require('../utils/validator');
 
 // GET all tools
 router.get('/', async (req, res) => {
@@ -26,8 +27,10 @@ router.get('/:id', async (req, res) => {
 // POST create tool
 router.post('/', async (req, res) => {
   try {
+    const errors = validateSchema(req.body, schemas.TOOL_SCHEMA);
+    if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
+
     const { name, type = 'api', description = '', endpoint = '', method = 'GET', headers = '{}' } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
     const result = await dbRun(
       'INSERT INTO tools (name, type, description, endpoint, method, headers, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, type, description, endpoint, method, typeof headers === 'string' ? headers : JSON.stringify(headers), 'active']
