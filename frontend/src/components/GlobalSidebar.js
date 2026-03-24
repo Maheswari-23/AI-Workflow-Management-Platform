@@ -61,7 +61,7 @@ export default function GlobalSidebar() {
       {/* Footer / User Profile Placeholder */}
       <div className="p-4" style={{ borderTop: `1.5px solid ${LB}` }}>
         <div className="flex items-center gap-3 px-2 py-1">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs" style={{ background: L, color: '#fff' }}>MA</div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs" style={{ background: L, color: '#fff' }}>M</div>
           <div>
             <p className="text-xs font-bold" style={{ color: TH }}>Maheswari</p>
             <p className="text-[10px]" style={{ color: TM }}>Admin</p>
