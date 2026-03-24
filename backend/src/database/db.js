@@ -123,7 +123,8 @@ function initializeSchema() {
       INSERT OR IGNORE INTO llm_providers (name, base_url, model) VALUES
         ('Groq', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile'),
         ('OpenAI', 'https://api.openai.com/v1', 'gpt-4o'),
-        ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022')
+        ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022'),
+        ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-pro')
     `);
 
     console.log('Database schema initialized.');
