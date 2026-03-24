@@ -98,6 +98,16 @@ export default function TasksPage() {
             </div>
           )}
 
+          {selectedTask && (
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Editing Task: {selectedTask.name}</span>
+                <button onClick={() => setSelectedTask(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <TaskMainPanel selectedTask={selectedTask} onTaskUpdate={handleTaskUpdate} />
+            </div>
+          )}
+
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
               <thead>
@@ -141,15 +151,7 @@ export default function TasksPage() {
             </table>
           </div>
 
-          {selectedTask && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
-              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
-                <span className="text-sm font-bold" style={{ color: L }}>Editing: {selectedTask.name}</span>
-                <button onClick={() => setSelectedTask(null)} style={{ color: TM }}>✕</button>
-              </div>
-              <TaskMainPanel selectedTask={selectedTask} onTaskUpdate={handleTaskUpdate} />
-            </div>
-          )}
+          {/* Detail Panel moved up */}
         </div>
       </div>
     </div>

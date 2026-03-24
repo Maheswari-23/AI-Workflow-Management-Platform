@@ -97,6 +97,19 @@ export default function SchedulerPage() {
             </div>
           )}
 
+          {selectedSchedule && (
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Managing Schedule: {selectedSchedule.name}</span>
+                <button onClick={() => setSelectedSchedule(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <SchedulerMainPanel
+                schedule={selectedSchedule}
+                onUpdate={() => { fetchSchedules(); setSelectedSchedule(null); }}
+              />
+            </div>
+          )}
+
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
               <thead>
@@ -145,15 +158,7 @@ export default function SchedulerPage() {
             </table>
           </div>
 
-          {selectedSchedule && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
-              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
-                <span className="text-sm font-bold" style={{ color: L }}>Editing: {selectedSchedule.name}</span>
-                <button onClick={() => setSelectedSchedule(null)} style={{ color: TM }}>✕</button>
-              </div>
-              <SchedulerMainPanel selectedSchedule={selectedSchedule} onSave={handleUpdate} />
-            </div>
-          )}
+          {/* Detail Panel moved up to line 100 */}
         </div>
       </div>
     </div>

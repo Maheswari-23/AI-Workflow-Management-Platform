@@ -99,6 +99,20 @@ export default function AgentsPage() {
             </div>
           )}
 
+          {selectedAgent && (
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Editing Agent: {selectedAgent.name}</span>
+                <button onClick={() => setSelectedAgent(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <AgentMainPanel
+                selectedAgent={selectedAgent}
+                onAgentUpdate={fetchAgents}
+                onSaveAgent={handleSaveAgent}
+              />
+            </div>
+          )}
+
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
               <thead>
@@ -141,20 +155,6 @@ export default function AgentsPage() {
               </tbody>
             </table>
           </div>
-
-          {selectedAgent && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
-              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
-                <span className="text-sm font-bold" style={{ color: L }}>Editing: {selectedAgent.name}</span>
-                <button onClick={() => setSelectedAgent(null)} style={{ color: TM }}>✕</button>
-              </div>
-              <AgentMainPanel
-                selectedAgent={selectedAgent}
-                onAgentUpdate={fetchAgents}
-                onSaveAgent={handleSaveAgent}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>

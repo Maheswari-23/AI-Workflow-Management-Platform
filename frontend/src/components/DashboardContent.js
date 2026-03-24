@@ -51,8 +51,8 @@ export default function DashboardContent() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8 overflow-y-auto" style={{ background: '#fff' }}>
-      <div className="max-w-5xl w-full">
+    <div className="h-full overflow-y-auto px-6 py-10" style={{ background: '#fff' }}>
+      <div className="max-w-6xl mx-auto w-full">
 
         {/* Header */}
         <div className="text-center mb-10">

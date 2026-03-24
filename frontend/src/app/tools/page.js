@@ -97,6 +97,16 @@ export default function ToolsPage() {
             </div>
           )}
 
+          {selectedTool && (
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Editing Tool: {selectedTool.name}</span>
+                <button onClick={() => setSelectedTool(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <ToolsMainPanel selectedTool={selectedTool} onSave={handleToolSave} />
+            </div>
+          )}
+
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
               <thead>
@@ -138,15 +148,7 @@ export default function ToolsPage() {
             </table>
           </div>
 
-          {selectedTool && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
-              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
-                <span className="text-sm font-bold" style={{ color: L }}>Editing: {selectedTool.name}</span>
-                <button onClick={() => setSelectedTool(null)} style={{ color: TM }}>✕</button>
-              </div>
-              <ToolsMainPanel selectedTool={selectedTool} onSave={handleToolSave} />
-            </div>
-          )}
+          {/* Detail Panel moved up */}
         </div>
       </div>
     </div>
