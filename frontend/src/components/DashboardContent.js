@@ -22,6 +22,7 @@ export default function DashboardContent() {
       <div className="max-w-5xl w-full">
 
         {/* Header */}
+        <div className="text-center mb-14">
           <h1 className="text-5xl font-extrabold tracking-tight mb-4" style={{ color: TEXT_HEADING }}>
             AI Workflow{' '}
             <span style={{ color: LILAC }}>Management</span>
