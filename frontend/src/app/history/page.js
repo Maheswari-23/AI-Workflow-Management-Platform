@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -57,15 +56,10 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="flex h-screen" style={{ background: '#fff' }}>
-      {/* Main area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between" style={{ background: '#fff', borderBottom: `1.5px solid ${LB}` }}>
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between" style={{ background: '#fff', borderBottom: `1.5px solid ${LB}` }}>
           <div className="flex items-center gap-4">
-            <Link href="/" className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: LL, color: L }}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            </Link>
             <div>
               <h1 className="text-2xl font-bold" style={{ color: TH }}>Run History</h1>
               <p className="text-sm" style={{ color: TM }}>Real-time execution logs. Auto-refreshes every 10s.</p>
@@ -178,7 +172,6 @@ export default function HistoryPage() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

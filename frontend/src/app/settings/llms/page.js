@@ -68,7 +68,7 @@ export default function LLMSettingsPage() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
+    <div className="flex h-full overflow-hidden" style={{ background: '#ffffff' }}>
       <LLMSidebar
         providers={providers}
         selectedProvider={selectedProvider}

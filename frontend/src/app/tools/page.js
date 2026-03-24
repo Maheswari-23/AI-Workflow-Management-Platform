@@ -1,16 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
-import ToolsSidebar from '../../components/ToolsSidebar';
 import ToolsMainPanel from '../../components/ToolsMainPanel';
+
+const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
 export default function ToolsPage() {
   const [tools, setTools] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState('');
 
-  useEffect(() => {
-    fetchTools();
-  }, []);
+  useEffect(() => { fetchTools(); }, []);
 
   const fetchTools = async () => {
     try {
@@ -18,28 +19,27 @@ export default function ToolsPage() {
       const res = await fetch('/api/tools');
       const data = await res.json();
       setTools(data.tools || []);
-    } catch (err) {
-      console.error('Error fetching tools:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setIsLoading(false); }
   };
 
-  const handleToolCreate = async (toolData) => {
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
     try {
       const res = await fetch('/api/tools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: toolData.name, type: toolData.type || 'api' }),
+        body: JSON.stringify({ name: newName, type: 'api' }),
       });
       const data = await res.json();
       if (data.tool) {
         setTools(prev => [data.tool, ...prev]);
         setSelectedTool(data.tool);
+        setNewName('');
+        setShowForm(false);
       }
-    } catch (err) {
-      console.error('Error creating tool:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleToolSave = (updatedTool) => {
@@ -47,31 +47,100 @@ export default function ToolsPage() {
     setSelectedTool(updatedTool);
   };
 
-  const handleToolDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this tool?')) return;
+  const handleDelete = async (id, e) => {
+    e.stopPropagation();
+    if (!confirm('Delete this tool?')) return;
     try {
       await fetch(`/api/tools/${id}`, { method: 'DELETE' });
       setTools(prev => prev.filter(t => t.id !== id));
       if (selectedTool?.id === id) setSelectedTool(null);
-    } catch (err) {
-      console.error('Error deleting tool:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
+  const typeColor = { api: { bg: LL, color: L }, script: { bg: '#fef3c7', color: '#92400e' }, database: { bg: '#d1fae5', color: '#065f46' } };
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
-      <ToolsSidebar
-        tools={tools}
-        selectedTool={selectedTool}
-        onToolSelect={setSelectedTool}
-        onToolCreate={handleToolCreate}
-        onToolDelete={handleToolDelete}
-        isLoading={isLoading}
-      />
-      <ToolsMainPanel
-        selectedTool={selectedTool}
-        onSave={handleToolSave}
-      />
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: TH }}>Tools Management</h1>
+          <p className="text-sm mt-0.5" style={{ color: TM }}>Register APIs, scripts, and databases for agents to use.</p>
+        </div>
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85"
+          style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
+          + New Tool
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
+        <div className="max-w-7xl mx-auto">
+
+          {showForm && (
+            <div className="mb-5 p-4 rounded-2xl" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <form onSubmit={handleCreate} className="flex gap-3 items-center">
+                <input autoFocus type="text" placeholder="Tool name..." value={newName} onChange={e => setNewName(e.target.value)}
+                  className="flex-1 px-4 py-2 rounded-xl text-sm" style={{ border: `1.5px solid ${LB}`, color: TH }} />
+                <button type="submit" className="px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85" style={{ background: L }}>Create</button>
+                <button type="button" onClick={() => { setShowForm(false); setNewName(''); }}
+                  className="px-4 py-2 text-sm font-semibold rounded-xl hover:opacity-85" style={{ background: LL, color: L }}>Cancel</button>
+              </form>
+            </div>
+          )}
+
+          <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+            <table className="min-w-full text-left">
+              <thead>
+                <tr style={{ background: LL }}>
+                  {['Name', 'Type', 'Endpoint', 'Actions'].map(col => (
+                    <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan="4" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading tools...</td></tr>
+                ) : tools.length === 0 ? (
+                  <tr><td colSpan="4" className="px-5 py-14 text-center" style={{ color: TM }}>No tools yet. Click "+ New Tool" to add one.</td></tr>
+                ) : tools.map(tool => (
+                  <tr key={tool.id} onClick={() => setSelectedTool(selectedTool?.id === tool.id ? null : tool)}
+                    className="cursor-pointer"
+                    style={{ borderTop: `1px solid ${LB}`, background: selectedTool?.id === tool.id ? LL : 'transparent' }}
+                    onMouseEnter={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = '#fdf8ff'; }}
+                    onMouseLeave={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = 'transparent'; }}>
+                    <td className="px-5 py-3">
+                      <span className="text-sm font-semibold" style={{ color: TH }}>{tool.name}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-medium uppercase"
+                        style={typeColor[tool.type] || { background: '#f3f4f6', color: '#6b7280' }}>
+                        {tool.type}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-xs font-mono" style={{ color: TM }}>{tool.endpoint || '—'}</td>
+                    <td className="px-5 py-3">
+                      <button onClick={(e) => handleDelete(tool.id, e)}
+                        className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
+                        style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedTool && (
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Editing: {selectedTool.name}</span>
+                <button onClick={() => setSelectedTool(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <ToolsMainPanel selectedTool={selectedTool} onSave={handleToolSave} />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
