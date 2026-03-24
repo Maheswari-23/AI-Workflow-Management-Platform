@@ -114,16 +114,16 @@ export default function ToolsPage() {
             <table className="min-w-full text-left">
               <thead>
                 <tr style={{ background: LL }}>
-                  {['Name', 'Type', 'Endpoint', 'Actions'].map(col => (
+                  {['Name', 'Type', 'Description'].map(col => (
                     <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan="4" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading tools...</td></tr>
+                  <tr><td colSpan="3" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading tools...</td></tr>
                 ) : tools.length === 0 ? (
-                  <tr><td colSpan="4" className="px-5 py-14 text-center" style={{ color: TM }}>No tools yet. Click "+ New Tool" to add one.</td></tr>
+                  <tr><td colSpan="3" className="px-5 py-14 text-center" style={{ color: TM }}>No tools yet. Select agents to see available skills.</td></tr>
                 ) : tools.map(tool => (
                   <tr key={tool.id} onClick={() => setSelectedTool(selectedTool?.id === tool.id ? null : tool)}
                     className="cursor-pointer"
@@ -139,11 +139,8 @@ export default function ToolsPage() {
                         {tool.type}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-xs font-mono" style={{ color: TM }}>{tool.endpoint || '—'}</td>
-                    <td className="px-5 py-3">
-                      <button onClick={(e) => handleDelete(tool.id, tool.name, e)}
-                        className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
-                        style={{ background: '#fee2e2', color: '#991b1b' }}>Delete</button>
+                    <td className="px-5 py-3 text-xs" style={{ color: TM }}>
+                      {tool.description || '—'}
                     </td>
                   </tr>
                 ))}

@@ -16,23 +16,30 @@ This document outlines the architectural shift from a "Flat" platform to a "Role
 
 ---
 
-## 🛠️ 2. Implemented for the Demo: "Standard Enterprise Tools"
+## 🛠️ 2. Implemented for the Demo: "Permanent Enterprise Toolset"
 
-We have seeded the database with a pre-configured toolbox so it doesn't look like an empty developer tool.
+We have purified the platform's toolbox. All "test" or "unwanted" tools have been removed and replaced with a professional suite of 10 enterprise-grade capabilities.
 
 | Tool Name | Type | Description |
 | :--- | :--- | :--- |
-| **Slack_Notification_Service** | API | Automated alerts to corporate channels. |
-| **Internal_ERP_Bridge** | API | Live compliance and vendor data auditing. |
-| **Standard_Calculator** | Script | Local math and logic processing. |
-| **Global_Audit_Logger** | API | Immutable security event tracking. |
+| **Slack_Corporate_Notify** | API | Automated alerts to corporate channels. |
+| **GitHub_Code_Auditor** | API | Security and PR activity auditing. |
+| **Jira_Service_Desk** | API | Automated ticketing for system anomalies. |
+| **Salesforce_CRM_Sync** | API | Lead scoring and customer data management. |
+| **Email_Gateway_Pro** | API | Stakeholder reports and summaries. |
+| **Financial_Ledger_Query** | DB | Quarterly budget adherence auditing. |
+| **Python_Data_Cleanser** | Script | Complex data sanitation and processing. |
+| **Wikipedia_Knowledge** | API | Verified factual data retrieval. |
+| **Standard_Calculator** | Script | High-precision mathematical utility. |
+| **Zendesk_Ticket_Fetcher** | API | Customer complaint retrieval for sentiment analysis. |
 
 ---
 
-## 🚀 3. The "Demo Lock"
-To provide a "Business User" experience for your manager, we have **Hidden the "+ New Tool" button**. 
-- This prevents accidental technical changes during the presentation.
-- It highlights the platform as a **"Governed Capability Store"** rather than an open development environment.
+## 🚀 3. The "Demo Lock" (Final Version)
+To provide a rock-solid **Business User** experience:
+1.  **Creation Hidden**: The "+ New Tool" button is removed.
+2.  **Destruction Blocked**: The "Delete" option is removed from all tools.
+3.  **Technical abstraction**: The UI now shows the **Description** of what a tool does, hiding technical endpoints and headers from non-technical users.
 
 > [!NOTE]
-> **To Restore Admin Access**: Simply uncomment the "+ New Tool" button in `frontend/src/app/tools/page.js`.
+> **To Restore Admin Access**: Simply uncomment the button and delete logic in `frontend/src/app/tools/page.js`.
