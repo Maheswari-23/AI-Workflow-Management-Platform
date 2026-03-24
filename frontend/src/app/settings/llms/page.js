@@ -1,27 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
-import LLMSidebar from '../../../components/LLMSidebar';
 import LLMConfigPanel from '../../../components/LLMConfigPanel';
+
+const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
 export default function LLMSettingsPage() {
   const [providers, setProviders] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProviders();
-  }, []);
+  useEffect(() => { fetchProviders(); }, []);
 
   const fetchProviders = async () => {
     try {
       const res = await fetch('/api/llm/providers');
       const data = await res.json();
       setProviders(data.providers || []);
-    } catch (err) {
-      console.error('Error fetching providers:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setIsLoading(false); }
   };
 
   const handleProviderSave = async (updatedProvider) => {
@@ -44,9 +40,7 @@ export default function LLMSettingsPage() {
         setSelectedProvider(data.provider);
         alert('Provider configuration saved!');
       }
-    } catch (err) {
-      alert('Error saving: ' + err.message);
-    }
+    } catch (err) { alert('Error saving: ' + err.message); }
   };
 
   const handleTestConnection = async (providerName) => {
@@ -62,24 +56,77 @@ export default function LLMSettingsPage() {
       } else {
         alert(`❌ Connection failed: ${data.error}`);
       }
-    } catch (err) {
-      alert('Error: ' + err.message);
-    }
+    } catch (err) { alert('Error: ' + err.message); }
   };
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: '#ffffff' }}>
-      <LLMSidebar
-        providers={providers}
-        selectedProvider={selectedProvider}
-        onProviderSelect={setSelectedProvider}
-        isLoading={isLoading}
-      />
-      <LLMConfigPanel
-        selectedProvider={selectedProvider}
-        onSave={handleProviderSave}
-        onTestConnection={handleTestConnection}
-      />
+    <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: TH }}>LLM Settings</h1>
+          <p className="text-sm mt-0.5" style={{ color: TM }}>Configure API keys and parameters for each LLM provider.</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
+        <div className="max-w-7xl mx-auto">
+
+          {/* Providers table */}
+          <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+            <table className="min-w-full text-left">
+              <thead>
+                <tr style={{ background: LL }}>
+                  {['Provider', 'Model', 'Base URL', 'Status'].map(col => (
+                    <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan="4" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading providers...</td></tr>
+                ) : providers.length === 0 ? (
+                  <tr><td colSpan="4" className="px-5 py-14 text-center" style={{ color: TM }}>No providers found.</td></tr>
+                ) : providers.map(p => (
+                  <tr key={p.id || p.name} onClick={() => setSelectedProvider(selectedProvider?.name === p.name ? null : p)}
+                    className="cursor-pointer"
+                    style={{ borderTop: `1px solid ${LB}`, background: selectedProvider?.name === p.name ? LL : 'transparent' }}
+                    onMouseEnter={e => { if (selectedProvider?.name !== p.name) e.currentTarget.style.background = '#fdf8ff'; }}
+                    onMouseLeave={e => { if (selectedProvider?.name !== p.name) e.currentTarget.style.background = 'transparent'; }}>
+                    <td className="px-5 py-3">
+                      <span className="text-sm font-semibold" style={{ color: TH }}>{p.name}</span>
+                    </td>
+                    <td className="px-5 py-3 text-sm font-mono" style={{ color: TM }}>{p.model || '—'}</td>
+                    <td className="px-5 py-3 text-xs font-mono" style={{ color: TM }}>{p.base_url || p.baseUrl || '—'}</td>
+                    <td className="px-5 py-3">
+                      {p.configured || p.hasKey ? (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: '#d1fae5', color: '#065f46' }}>✓ Configured</span>
+                      ) : (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: '#fee2e2', color: '#991b1b' }}>Not Configured</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Inline config panel */}
+          {selectedProvider && (
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${L}` }}>
+              <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: LL }}>
+                <span className="text-sm font-bold" style={{ color: L }}>Configuring: {selectedProvider.name}</span>
+                <button onClick={() => setSelectedProvider(null)} style={{ color: TM }}>✕</button>
+              </div>
+              <LLMConfigPanel
+                selectedProvider={selectedProvider}
+                onSave={handleProviderSave}
+                onTestConnection={handleTestConnection}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
