@@ -70,7 +70,7 @@ export default function ToolsPage() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
       {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
+      <div className="px-6 pt-12 pb-6 flex items-center justify-between" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
         <div>
           <h1 className="text-2xl font-bold" style={{ color: TH }}>Tools Registry</h1>
           <p className="text-sm mt-0.5" style={{ color: TM }}>View and manage registered enterprise capabilities available to your agents.</p>

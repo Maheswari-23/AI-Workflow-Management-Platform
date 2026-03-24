@@ -57,7 +57,7 @@ export default function HistoryPage() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
       {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between" style={{ background: '#fff', borderBottom: `1.5px solid ${LB}` }}>
+      <div className="px-6 pt-12 pb-6 flex items-center justify-between" style={{ background: '#fff', borderBottom: `1.5px solid ${LB}` }}>
         <div>
           <h1 className="text-2xl font-bold" style={{ color: TH }}>Run History</h1>
           <p className="text-sm" style={{ color: TM }}>Real-time execution logs. Auto-refreshes every 10s.</p>
