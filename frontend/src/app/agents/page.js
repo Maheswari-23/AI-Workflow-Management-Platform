@@ -43,6 +43,7 @@ export default function AgentsPage() {
   };
 
   const handleAgentDelete = async (agentId) => {
+    if (!confirm('Are you sure you want to delete this agent?')) return;
     try {
       await fetch(`/api/agents/${agentId}`, { method: 'DELETE' });
       setAgents(prev => prev.filter(a => a.id !== agentId));
