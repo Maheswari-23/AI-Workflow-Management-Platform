@@ -22,12 +22,6 @@ export default function DashboardContent() {
       <div className="max-w-5xl w-full">
 
         {/* Header */}
-        <div className="text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-6"
-            style={{ background: LILAC_LIGHT, color: LILAC, border: `1px solid ${LILAC_BORDER}` }}>
-            <span className="w-2 h-2 rounded-full animate-pulse inline-block" style={{ background: LILAC }}></span>
-            AI-Powered Orchestration
-          </div>
           <h1 className="text-5xl font-extrabold tracking-tight mb-4" style={{ color: TEXT_HEADING }}>
             AI Workflow{' '}
             <span style={{ color: LILAC }}>Management</span>
