@@ -47,6 +47,17 @@ export default function TasksPage() {
     setSelectedTask(updatedTask);
   };
 
+  const handleTaskDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      setTasks(prev => prev.filter(t => t.id !== id));
+      if (selectedTask?.id === id) setSelectedTask(null);
+    } catch (err) {
+      console.error('Error deleting task:', err);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
       <TasksSidebar
@@ -54,6 +65,7 @@ export default function TasksPage() {
         selectedTask={selectedTask}
         onTaskSelect={setSelectedTask}
         onTaskCreate={handleTaskCreate}
+        onTaskDelete={handleTaskDelete}
       />
       <TaskMainPanel
         selectedTask={selectedTask}

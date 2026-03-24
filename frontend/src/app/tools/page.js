@@ -47,6 +47,17 @@ export default function ToolsPage() {
     setSelectedTool(updatedTool);
   };
 
+  const handleToolDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this tool?')) return;
+    try {
+      await fetch(`/api/tools/${id}`, { method: 'DELETE' });
+      setTools(prev => prev.filter(t => t.id !== id));
+      if (selectedTool?.id === id) setSelectedTool(null);
+    } catch (err) {
+      console.error('Error deleting tool:', err);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#ffffff' }}>
       <ToolsSidebar
@@ -54,6 +65,7 @@ export default function ToolsPage() {
         selectedTool={selectedTool}
         onToolSelect={setSelectedTool}
         onToolCreate={handleToolCreate}
+        onToolDelete={handleToolDelete}
         isLoading={isLoading}
       />
       <ToolsMainPanel

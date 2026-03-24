@@ -82,10 +82,10 @@ export default function AgentsSidebar({ agents, selectedAgent, onAgentSelect, on
             {onAgentDelete && (
               <button
                 onClick={(e) => { e.stopPropagation(); onAgentDelete(agent.id); }}
-                className="absolute top-2 right-2 w-5 h-5 rounded-full items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
-                style={{ background: '#fee2e2', color: '#ef4444' }}
+                className="absolute top-3 right-3 w-6 h-6 rounded-full items-center justify-center text-lg opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                style={{ color: TM }}
                 title="Delete agent"
-              >×</button>
+              >⋮</button>
             )}
           </div>
         ))}
