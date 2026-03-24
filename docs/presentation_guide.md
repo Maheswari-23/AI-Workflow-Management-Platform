@@ -52,7 +52,7 @@ Instead of a weather app, show your manager how this automates **Procurement Com
 3.  **Governance & Audit Trail**: Every AI decision is logged in the **Run History**, complete with the raw outputs and tool responses. This is a **gold mine for legal and compliance** teams.
 4.  **Cost Arbitrage**: Leverages Llama-3 (via OpenCode) for bulk processing, saving thousands in API costs compared to using GPT-4 for everything.
 
----
+---  
 
 ## 🔧 Demo Setup (Pre-Check)
 Before your presentation, ensure your ports are clear by running this in a PowerShell terminal:
