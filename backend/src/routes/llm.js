@@ -68,6 +68,23 @@ router.post('/providers', async (req, res) => {
   }
 });
 
+// POST set a provider as default
+router.post('/providers/:name/set-default', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const provider = await dbGet('SELECT id FROM llm_providers WHERE name = ?', [name]);
+    if (!provider) return res.status(404).json({ error: 'Provider not found' });
+
+    // Clear all defaults, then set this one
+    await dbRun('UPDATE llm_providers SET is_default = 0');
+    await dbRun('UPDATE llm_providers SET is_default = 1 WHERE name = ?', [name]);
+
+    res.json({ success: true, message: `${name} is now the default LLM provider` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST test LLM connection
 router.post('/test', async (req, res) => {
   try {

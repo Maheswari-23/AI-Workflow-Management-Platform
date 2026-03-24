@@ -42,13 +42,25 @@ class OpenCodeClient {
 /**
  * Initializes and returns an OpenCode client dynamically configured
  * with the API parameters from the database.
+ * Uses the default provider if no name is specified.
  */
-async function getOpenCodeClient(providerName = 'Groq') {
-  const providerDetails = await dbGet('SELECT * FROM llm_providers WHERE name = ? COLLATE NOCASE', [providerName]);
-  
-  let apiKey = process.env.GROQ_API_KEY || ''; // Fallback
-  let baseUrl = 'https://api.groq.com/openai/v1'; // Fallback
-  let modelName = 'llama-3.3-70b-versatile'; // Fallback
+async function getOpenCodeClient(providerName = null) {
+  let providerDetails;
+
+  if (providerName) {
+    providerDetails = await dbGet('SELECT * FROM llm_providers WHERE name = ? COLLATE NOCASE', [providerName]);
+  } else {
+    // Use the provider marked as default
+    providerDetails = await dbGet('SELECT * FROM llm_providers WHERE is_default = 1 LIMIT 1');
+    // Fallback to Groq if nothing is set as default
+    if (!providerDetails) {
+      providerDetails = await dbGet('SELECT * FROM llm_providers WHERE name = ? COLLATE NOCASE', ['Groq']);
+    }
+  }
+
+  let apiKey = process.env.GROQ_API_KEY || '';
+  let baseUrl = 'https://api.groq.com/openai/v1';
+  let modelName = 'llama-3.3-70b-versatile';
 
   if (providerDetails) {
     apiKey = providerDetails.api_key || apiKey;

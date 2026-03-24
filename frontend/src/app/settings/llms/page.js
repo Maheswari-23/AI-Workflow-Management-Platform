@@ -20,6 +20,16 @@ export default function LLMSettingsPage() {
     finally { setIsLoading(false); }
   };
 
+  const handleSetDefault = async (name) => {
+    try {
+      const res = await fetch(`/api/llm/providers/${name}/set-default`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setProviders(prev => prev.map(p => ({ ...p, is_default: p.name === name ? 1 : 0 })));
+      }
+    } catch (err) { console.error(err); }
+  };
+
   const handleProviderSave = async (updatedProvider) => {
     try {
       const res = await fetch('/api/llm/providers', {
@@ -77,16 +87,16 @@ export default function LLMSettingsPage() {
             <table className="min-w-full text-left">
               <thead>
                 <tr style={{ background: LL }}>
-                  {['Provider', 'Model', 'Base URL', 'Status'].map(col => (
+                  {['Provider', 'Model', 'Base URL', 'Status', 'Default', ''].map(col => (
                     <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan="4" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading providers...</td></tr>
+                  <tr><td colSpan="6" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading providers...</td></tr>
                 ) : providers.length === 0 ? (
-                  <tr><td colSpan="4" className="px-5 py-14 text-center" style={{ color: TM }}>No providers found.</td></tr>
+                  <tr><td colSpan="6" className="px-5 py-14 text-center" style={{ color: TM }}>No providers found.</td></tr>
                 ) : providers.map(p => (
                   <tr key={p.id || p.name} onClick={() => setSelectedProvider(selectedProvider?.name === p.name ? null : p)}
                     className="cursor-pointer"
@@ -103,6 +113,22 @@ export default function LLMSettingsPage() {
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: '#d1fae5', color: '#065f46' }}>✓ Configured</span>
                       ) : (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: '#fee2e2', color: '#991b1b' }}>Not Configured</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      {p.is_default ? (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: LL, color: L }}>★ Default</span>
+                      ) : (
+                        <span className="text-xs" style={{ color: TM }}>—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      {!p.is_default && (
+                        <button onClick={(e) => { e.stopPropagation(); handleSetDefault(p.name); }}
+                          className="text-xs px-3 py-1 rounded-lg hover:opacity-80 font-medium"
+                          style={{ background: LL, color: L, border: `1px solid ${LB}` }}>
+                          Set Default
+                        </button>
                       )}
                     </td>
                   </tr>

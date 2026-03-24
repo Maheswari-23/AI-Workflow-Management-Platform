@@ -29,7 +29,7 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
 
     // 1. Initialize OpenCode Client and Tools adapter
     // Using Groq as default, but this can easily switch to OpenAI via DB
-    const opencode = await getOpenCodeClient('Groq');
+    const opencode = await getOpenCodeClient();
     
     // Fetch user-defined APIs as native OpenCode functions
     const rawTools = await getDynamicTools();

@@ -113,10 +113,14 @@ function initializeSchema() {
         temperature REAL DEFAULT 0.7,
         max_tokens INTEGER DEFAULT 2048,
         configured INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migrate: add is_default column if it doesn't exist (for existing DBs)
+    db.run(`ALTER TABLE llm_providers ADD COLUMN is_default INTEGER DEFAULT 0`, () => {});
 
     // Seed default LLM providers if not exist
     db.run(`
@@ -126,6 +130,9 @@ function initializeSchema() {
         ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022'),
         ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-pro')
     `);
+
+    // Set Groq as default if no default is set
+    db.run(`UPDATE llm_providers SET is_default = 1 WHERE name = 'Groq' AND NOT EXISTS (SELECT 1 FROM llm_providers WHERE is_default = 1)`);
 
     console.log('Database schema initialized.');
   });
