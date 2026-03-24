@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import DashboardContent from './DashboardContent';
 
 const L = '#b57bee', LL = '#f3e8ff', LB = '#e9d5ff', TH = '#1e0a35', TM = '#9b87ba';
@@ -16,11 +16,10 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Sync system prompt when agent changes
-  const currentSP = selectedAgent?.system_prompt || '';
-  if (systemPrompt !== currentSP && !isSaving) {
-    setSystemPrompt(currentSP);
-  }
+  // Sync system prompt when a new agent is selected
+  useEffect(() => {
+    setSystemPrompt(selectedAgent?.system_prompt || '');
+  }, [selectedAgent?.id]);
 
   const handleSkillFileUpload = (e) => {
     const file = e.target.files[0];

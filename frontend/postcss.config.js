@@ -4,4 +4,3 @@ module.exports = {
     autoprefixer: {},
   },
 }
-https://github.com/Maheswari-23/AI-Workflow-Management-Platform
