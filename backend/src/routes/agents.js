@@ -106,7 +106,14 @@ router.post('/:id/execute', async (req, res) => {
     const rawTools = await getDynamicTools();
     const openCodeTools = rawTools.map(t => ({ type: t.type, function: t.function }));
 
-    const agentSystemPrompt = systemPrompt || 'You are a helpful OpenCode AI assistant with access to tools.';
+    let agentSystemPrompt = systemPrompt || 'You are a helpful OpenCode AI assistant with access to tools.';
+    
+    // Strict Tool Protocol Injection to prevent hallucinations (like brave_search)
+    if (openCodeTools.length > 0) {
+      const toolNames = openCodeTools.map(t => t.function.name).join(', ');
+      agentSystemPrompt += `\n\n[STRICT TOOL PROTOCOL]\n1. You MUST ONLY use the provided tools: ${toolNames}.\n2. NEVER hallucinate tools (e.g., brave_search, google_search) that are not in the list above.\n3. If a request cannot be fulfilled with these tools, state the limitation clearly.`;
+    }
+
     let messages = [
       { role: 'system', content: agentSystemPrompt },
       { role: 'user', content: prompt },

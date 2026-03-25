@@ -61,7 +61,7 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: samplePrompt,
-          systemPrompt: `[DRY RUN MODE] You are being tested. Do NOT perform any real actions. Instead, describe what you WOULD do if this were a real execution.\n\n${systemPrompt}`,
+          systemPrompt: `[DRY RUN MODE] You are in a safe simulation. Proceed with the request using your available tools to show the user how you would handle this. Do not hesitate to emit tool calls.\n\n${systemPrompt}`,
           skillFile: skillFile?.name,
         }),
       });
