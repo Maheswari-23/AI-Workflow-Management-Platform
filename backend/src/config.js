@@ -6,7 +6,7 @@ const path = require('path');
  * Supports environment overrides.
  */
 module.exports = {
-  DB_PATH: process.env.DB_PATH || path.resolve(__dirname, 'database/data/workflow.db'),
+  DB_PATH: process.env.DB_PATH || path.resolve(__dirname, '../../data/workflow.db'),
   PORT: process.env.PORT || 3001,
   
   // LLM Default Parameters
