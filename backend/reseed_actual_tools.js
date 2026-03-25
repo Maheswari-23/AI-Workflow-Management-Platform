@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const config = require('./src/config');
 
-const DB_PATH = path.resolve(__dirname, 'data/workflow.db');
+const DB_PATH = path.resolve(__dirname, '../data/workflow.db');
 const db = new sqlite3.Database(DB_PATH);
 
 const realTools = [
