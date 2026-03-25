@@ -160,9 +160,9 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
 
         {/* Run Output */}
         {runOutput && (
-          <div style={{ ...card, background: '#f0fdf4', border: `1.5px solid #86efac` }}>
-            <h4 className="text-xs font-bold mb-2 text-green-700">Workflow Run Output:</h4>
-            <pre className="text-sm whitespace-pre-wrap font-mono text-green-900">{runOutput}</pre>
+          <div style={{ ...card, background: runOutput.startsWith('Error') ? '#fef2f2' : '#f0fdf4', border: `1.5px solid ${runOutput.startsWith('Error') ? '#fecaca' : '#86efac'}` }}>
+            <h4 className={`text-xs font-bold mb-2 ${runOutput.startsWith('Error') ? 'text-red-700' : 'text-green-700'}`}>{runOutput.startsWith('Error') ? 'Workflow Error:' : 'Workflow Run Output:'}</h4>
+            <pre className={`text-sm whitespace-pre-wrap font-mono ${runOutput.startsWith('Error') ? 'text-red-900' : 'text-green-900'}`}>{runOutput}</pre>
           </div>
         )}
 

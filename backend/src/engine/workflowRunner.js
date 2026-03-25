@@ -59,6 +59,9 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
     // 2. Execute First OpenCode Pass
     output += 'Executing initial reasoning pass...\n';
     let responseData = await opencode.generate(messages, openCodeTools);
+    if (!responseData?.choices || !responseData.choices[0]) {
+      throw new Error('LLM Provider returned an invalid structural response.');
+    }
     let messageOut = responseData.choices[0].message;
     messages.push(messageOut);
 
@@ -88,7 +91,11 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
       // Final pass to synthesize tool results
       output += '\nProcessing tool outputs via OpenCode...\n';
       const finalPass = await opencode.generate(messages);
-      output += `\nFinal Report:\n${finalPass.choices[0].message.content}\n`;
+      if (!finalPass?.choices || !finalPass.choices[0]) {
+         output += `\nFinal Report:\nError: LLM failed to synthesize final output.\n`;
+      } else {
+         output += `\nFinal Report:\n${finalPass.choices[0].message.content}\n`;
+      }
       
     } else {
        // Completed without tools

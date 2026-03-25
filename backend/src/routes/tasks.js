@@ -3,6 +3,7 @@ const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 const workflowRunner = require('../engine/workflowRunner');
 const safeParse = require('../utils/safeParse');
+const { getOpenCodeClient } = require('../opencode/client');
 const { validateSchema, schemas } = require('../utils/validator');
 
 // GET all tasks
@@ -100,35 +101,32 @@ router.post('/:id/run', async (req, res) => {
 
 // POST generate workflow steps via LLM
 router.post('/:id/generate-steps', async (req, res) => {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) return res.status(401).json({ error: 'Missing GROQ_API_KEY' });
-
   try {
     const { description } = req.body;
     if (!description) return res.status(400).json({ error: 'Description is required' });
 
-    const axios = require('axios');
-    const response = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an AI workflow architect. When given a task description, generate clear, numbered workflow steps that an AI agent system should follow. Each step should be actionable and specific. Format as a numbered list only, no extra commentary.`,
-          },
-          {
-            role: 'user',
-            content: `Generate workflow steps for this task: ${description}`,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 800,
-      },
-      { headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' } }
-    );
+    const opencode = await getOpenCodeClient();
+    if (!opencode.apiKey) {
+      return res.status(401).json({ error: 'No API Key configured. Please verify LLM provider settings.' });
+    }
 
-    const steps = response.data.choices[0].message.content;
+    const messages = [
+      {
+        role: 'system',
+        content: `You are an AI workflow architect. When given a task description, generate clear, numbered workflow steps that an AI agent system should follow. Each step should be actionable and specific. Format as a numbered list only, no extra commentary.`,
+      },
+      {
+        role: 'user',
+        content: `Generate workflow steps for this task: ${description}`,
+      },
+    ];
+
+    const response = await opencode.generate(messages);
+    if (!response || !response.choices || !response.choices[0]) {
+      return res.status(500).json({ error: 'Invalid response from LLM provider' });
+    }
+
+    const steps = response.choices[0].message.content;
     // Auto-save steps to task
     await dbRun('UPDATE tasks SET workflow_steps = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [steps, 'saved', req.params.id]);
     res.json({ steps });
