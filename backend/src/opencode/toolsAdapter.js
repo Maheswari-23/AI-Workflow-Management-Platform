@@ -81,17 +81,23 @@ async function getDynamicTools() {
         parameters = {
           type: 'object',
           properties: {
-            symbol: { type: 'string', description: 'Stock ticker symbol to fetch price for. Example: "AAPL" or "MSFT"' }
+            symbol: { type: 'string', description: 'Ticker symbol (e.g., "AAPL"). For Indian stocks append ".NS" (e.g., "TEJASNET.NS")' },
+            days_history: { type: 'number', description: 'Optional. Number of past days of historical data to fetch.' }
           },
           required: ['symbol']
         };
+      }
+
+      let finalDescription = tool.description || `Tool: ${tool.name}`;
+      if (tool.name === 'fetch_stock_price' || tool.name === 'get_stock_price') {
+         finalDescription = "Fetches real stock data (current price or historical) for a given ticker symbol.";
       }
 
       toolsList.push({
         type: 'function',
         function: {
           name: tool.name.replace(/\s+/g, '_').toLowerCase(),
-          description: tool.description || `Tool: ${tool.name}`,
+          description: finalDescription,
           parameters
         },
         executionMeta: {
@@ -236,15 +242,23 @@ async function executeTool(toolName, args, dynamicToolsList) {
       const symbol = args.symbol || 'AAPL';
       try {
         const yahooFinance = require('yahoo-finance2').default;
-        const result = await yahooFinance.quote(symbol);
-        return JSON.stringify({
-          symbol: result.symbol,
-          shortName: result.shortName,
-          regularMarketPrice: result.regularMarketPrice,
-          regularMarketChange: result.regularMarketChange,
-          regularMarketChangePercent: result.regularMarketChangePercent,
-          currency: result.currency
-        });
+        
+        if (args.days_history) {
+          const pastDate = new Date();
+          pastDate.setDate(pastDate.getDate() - (parseInt(args.days_history) + 2));
+          const result = await yahooFinance.historical(symbol, { period1: pastDate });
+          return JSON.stringify(result.slice(-args.days_history));
+        } else {
+          const result = await yahooFinance.quote(symbol);
+          return JSON.stringify({
+            symbol: result.symbol,
+            shortName: result.shortName,
+            regularMarketPrice: result.regularMarketPrice,
+            regularMarketChange: result.regularMarketChange,
+            regularMarketChangePercent: result.regularMarketChangePercent,
+            currency: result.currency
+          });
+        }
       } catch(e) {
         return JSON.stringify({ error: `Could not fetch stock price for "${symbol}": ${e.message}` });
       }
