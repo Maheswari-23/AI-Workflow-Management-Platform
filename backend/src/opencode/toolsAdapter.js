@@ -2,31 +2,91 @@ const axios = require('axios');
 const { dbAll } = require('../database/db');
 
 /**
- * Dynamically queries the tools table and converts active user-defined APIs 
+ * Dynamically queries the tools table and converts active tools
  * into Native OpenCode Tool Schemas.
  */
 async function getDynamicTools() {
   const toolsList = [];
   try {
     const dbTools = await dbAll('SELECT * FROM tools WHERE status = ?', ['active']);
-    
+
     for (const tool of dbTools) {
-      // Map the DB structure to an OpenCode compatible tool schema
+      // Build named parameter schemas for specific tools
+      let parameters = {
+        type: 'object',
+        properties: {
+          requestBody: { type: 'string', description: 'JSON string of any required request body' },
+          query_params: { type: 'string', description: 'URL encoded query parameters to append' }
+        },
+        required: []
+      };
+
+      if (tool.name === 'get_weather') {
+        parameters = {
+          type: 'object',
+          properties: {
+            city: { type: 'string', description: 'Name of the city to fetch weather for. Example: "Chennai" or "London"' }
+          },
+          required: ['city']
+        };
+      } else if (tool.name === 'get_ip_info') {
+        parameters = {
+          type: 'object',
+          properties: {
+            ip: { type: 'string', description: 'Optional IP address to look up. Leave empty to use server IP.' }
+          },
+          required: []
+        };
+      } else if (tool.name === 'calculator') {
+        parameters = {
+          type: 'object',
+          properties: {
+            expression: { type: 'string', description: 'Math expression to evaluate. Example: "2 * (5 + 3)"' }
+          },
+          required: ['expression']
+        };
+      } else if (tool.name === 'log') {
+        parameters = {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: 'The message string to log to the workflow output.' }
+          },
+          required: ['message']
+        };
+      } else if (tool.name === 'read_file') {
+        parameters = {
+          type: 'object',
+          properties: {
+            filepath: { type: 'string', description: 'Absolute path or relative path to the file to read' }
+          },
+          required: ['filepath']
+        };
+      } else if (tool.name === 'write_file') {
+        parameters = {
+          type: 'object',
+          properties: {
+            filepath: { type: 'string', description: 'Absolute or relative path to the file' },
+            content: { type: 'string', description: 'Content to write to the file' }
+          },
+          required: ['filepath', 'content']
+        };
+      } else if (tool.name === 'list_directory') {
+        parameters = {
+          type: 'object',
+          properties: {
+            dirpath: { type: 'string', description: 'Path to the directory to list' }
+          },
+          required: ['dirpath']
+        };
+      }
+
       toolsList.push({
         type: 'function',
         function: {
           name: tool.name.replace(/\s+/g, '_').toLowerCase(),
-          description: tool.description || `Tool exactly matching ${tool.name}. Endpoint is ${tool.method} ${tool.endpoint}.`,
-          parameters: {
-            type: 'object',
-            properties: {
-              requestBody: { type: 'string', description: 'JSON string of any required request body' },
-              query_params: { type: 'string', description: 'URL encoded query parameters to append (e.g. ?q=test)' }
-            },
-            required: []
-          }
+          description: tool.description || `Tool: ${tool.name}`,
+          parameters
         },
-        // Store execution metadata so our runner knows how to execute it when called
         executionMeta: {
           originalType: tool.type || 'api',
           endpoint: tool.endpoint || '',
@@ -42,27 +102,31 @@ async function getDynamicTools() {
 }
 
 /**
- * Execute the external tool using the metadata captured during initialization
+ * Execute the tool based on its type and name
  */
 async function executeTool(toolName, args, dynamicToolsList) {
   try {
     const toolDef = dynamicToolsList.find(t => t.function.name === toolName);
-    
+
     if (!toolDef) {
-       // Support legacy calculate_math fallback if needed
-       if (toolName === 'calculate_math') {
-          return String(new Function(`return ${args.expression}`)());
-       }
-       return `Error: Tool ${toolName} not found in active registry.`;
+      if (toolName === 'calculate_math') {
+        return String(new Function(`return ${args.expression}`)());
+      }
+      return `Error: Tool ${toolName} not found in active registry.`;
     }
 
-    const { endpoint, method, headers, originalType } = toolDef.executionMeta;
+    const { originalType } = toolDef.executionMeta;
 
-    // Handle non-API standard tools with real local implementations
+    // ─── Native local tool implementations ───────────────────────────────────
     if (originalType !== 'api') {
+
       if (toolName === 'get_current_time') {
-        return JSON.stringify({ time: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+        return JSON.stringify({
+          time: new Date().toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        });
       }
+
       if (toolName === 'generate_uuid') {
         const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
           const r = Math.random() * 16 | 0;
@@ -70,11 +134,13 @@ async function executeTool(toolName, args, dynamicToolsList) {
         });
         return JSON.stringify({ uuid });
       }
+
       if (toolName === 'log') {
         const msg = args.message || args.requestBody || JSON.stringify(args);
         console.log('[Tool:log]', msg);
         return JSON.stringify({ logged: true, message: msg });
       }
+
       if (toolName === 'calculator') {
         try {
           const expr = args.expression || args.requestBody || '';
@@ -84,15 +150,88 @@ async function executeTool(toolName, args, dynamicToolsList) {
           return JSON.stringify({ error: 'Invalid expression: ' + e.message });
         }
       }
+
+      if (toolName === 'read_file') {
+        try {
+          const fs = require('fs');
+          const content = fs.readFileSync(args.filepath, 'utf-8');
+          return JSON.stringify({ success: true, content });
+        } catch(e) {
+          return JSON.stringify({ error: 'Cannot read file: ' + e.message });
+        }
+      }
+
+      if (toolName === 'write_file') {
+        try {
+          const fs = require('fs');
+          fs.writeFileSync(args.filepath, args.content, 'utf-8');
+          return JSON.stringify({ success: true, message: 'File written successfully' });
+        } catch(e) {
+          return JSON.stringify({ error: 'Cannot write file: ' + e.message });
+        }
+      }
+
+      if (toolName === 'list_directory') {
+        try {
+          const fs = require('fs');
+          const files = fs.readdirSync(args.dirpath);
+          return JSON.stringify({ success: true, files });
+        } catch(e) {
+          return JSON.stringify({ error: 'Cannot list directory: ' + e.message });
+        }
+      }
+
       return `[Platform] Tool [${toolName}] acknowledged.`;
     }
 
-    // Handle API Tool Execution
+    // ─── Named API tool handlers ──────────────────────────────────────────────
+
+    if (toolName === 'get_weather') {
+      const city = encodeURIComponent(args.city || 'London');
+      try {
+        const res = await axios.get(`https://wttr.in/${city}?format=j1`, { timeout: 6000 });
+        const current = res.data.current_condition?.[0];
+        const area = res.data.nearest_area?.[0];
+        return JSON.stringify({
+          city: area?.areaName?.[0]?.value || args.city,
+          country: area?.country?.[0]?.value,
+          temperature_c: current?.temp_C,
+          feels_like_c: current?.FeelsLikeC,
+          humidity_pct: current?.humidity,
+          description: current?.weatherDesc?.[0]?.value,
+          wind_kmph: current?.windspeedKmph,
+        });
+      } catch(e) {
+        return JSON.stringify({ error: `Could not fetch weather for "${args.city}": ${e.message}` });
+      }
+    }
+
+    if (toolName === 'get_ip_info') {
+      const ip = args.ip ? `/${args.ip}` : '';
+      try {
+        const res = await axios.get(`https://ipapi.co${ip}/json/`, { timeout: 6000 });
+        return JSON.stringify({
+          ip: res.data.ip,
+          city: res.data.city,
+          region: res.data.region,
+          country: res.data.country_name,
+          timezone: res.data.timezone,
+          latitude: res.data.latitude,
+          longitude: res.data.longitude,
+          org: res.data.org,
+        });
+      } catch(e) {
+        return JSON.stringify({ error: `Could not fetch IP info: ${e.message}` });
+      }
+    }
+
+    // ─── Generic API Tool Execution (for user-added tools with http endpoints) ─
+    const { endpoint, method, headers } = toolDef.executionMeta;
     let url = String(endpoint);
     if (!url.startsWith('http')) {
-      return `Error: API endpoints must start with http/https.`;
+      return `Error: API endpoint must start with http/https. Got: "${url}"`;
     }
-    
+
     if (args.query_params) {
       url += (url.includes('?') ? '&' : '?') + args.query_params;
     }
@@ -106,19 +245,18 @@ async function executeTool(toolName, args, dynamicToolsList) {
     }
 
     try {
-      // Convert EXEC generic method to GET for raw network
       const applyMethod = method === 'EXEC' ? 'GET' : method;
       const res = await axios({ method: applyMethod, url, data, headers: parsedHeaders, timeout: 5000 });
       return typeof res.data === 'object' ? JSON.stringify(res.data) : String(res.data);
     } catch (networkError) {
-      // Handle strict sandbox network limitations or bad DNS gracefully
       return JSON.stringify({
         _mocked_sandbox_response: true,
-        message: `API Call to ${url} was intercepted successfully.`,
-        note: `Simulation mode active due to network restrictions (${networkError.code || networkError.message}).`,
-        simulated_data: { status: "OK", value: Math.floor(Math.random() * 100000) }
+        message: `API Call to ${url} was intercepted.`,
+        note: `Network restriction (${networkError.code || networkError.message}).`,
+        simulated_data: { status: 'OK', value: Math.floor(Math.random() * 100000) }
       });
     }
+
   } catch (error) {
     return 'Tool Execution Fault: ' + error.message;
   }

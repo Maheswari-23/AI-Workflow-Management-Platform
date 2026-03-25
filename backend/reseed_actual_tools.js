@@ -37,6 +37,24 @@ const realTools = [
     endpoint: 'calculator',
     method: 'EXEC'
   },
+
+  // ✅ Weather — real API via wttr.in (no API key needed)
+  {
+    name: 'get_weather',
+    type: 'api',
+    description: 'Fetches real-time weather for any city. Returns temperature, humidity, wind speed, and description. Powered by wttr.in.',
+    endpoint: 'https://wttr.in',
+    method: 'GET'
+  },
+
+  // ✅ IP Info — real API via ipapi.co (no API key needed)
+  {
+    name: 'get_ip_info',
+    type: 'api',
+    description: 'Returns geolocation data for a given IP address (city, country, timezone, coordinates, ISP). Leave IP blank for the server\'s own IP.',
+    endpoint: 'https://ipapi.co',
+    method: 'GET'
+  },
 ];
 
 
