@@ -12,6 +12,7 @@ export default function ToolsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   useEffect(() => { fetchTools(); }, []);
 
@@ -20,10 +21,26 @@ export default function ToolsPage() {
       setIsLoading(true);
       const res = await fetch('/api/tools');
       const data = await res.json();
-      setTools(data.tools || []);
+      const fetchedTools = data.tools || [];
+      setTools(fetchedTools);
+      
+      // Auto-expand all groups on initial load
+      const initialExpanded = {};
+      const types = [...new Set(fetchedTools.map(t => t.type || 'unknown'))];
+      types.forEach(t => initialExpanded[t] = true);
+      setExpandedGroups(initialExpanded);
     } catch (err) { console.error(err); }
     finally { setIsLoading(false); }
   };
+
+  const toggleGroup = (type) => setExpandedGroups(p => ({ ...p, [type]: !p[type] }));
+
+  const groupedTools = tools.reduce((acc, tool) => {
+    const type = tool.type || 'unknown';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(tool);
+    return acc;
+  }, {});
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -66,6 +83,13 @@ export default function ToolsPage() {
     api:      { bg: LL, color: L },
     script:   { bg: '#fef3c7', color: '#92400e' },
     database: { bg: '#d1fae5', color: '#065f46' },
+    fs:       { bg: '#e0f2fe', color: '#0369a1' },
+    browser:  { bg: '#e0e7ff', color: '#4338ca' },
+    code:     { bg: '#fef08a', color: '#b45309' },
+    memory:   { bg: '#fae8ff', color: '#a21caf' },
+    document: { bg: '#fce7f3', color: '#be185d' },
+    system:   { bg: '#f3f4f6', color: '#4b5563' },
+    agent:    { bg: '#ffedd5', color: '#b45309' },
   };
 
   return (
@@ -100,42 +124,61 @@ export default function ToolsPage() {
             </div>
           )}
 
-          <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-            <table className="min-w-full text-left">
-              <thead>
-                <tr style={{ background: LL }}>
-                  {['Name', 'Type', 'Description'].map(col => (
-                    <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <tr><td colSpan="3" className="px-5 py-10 text-center text-sm" style={{ color: TM }}>Loading tools...</td></tr>
-                ) : tools.length === 0 ? (
-                  <tr><td colSpan="3" className="px-5 py-14 text-center" style={{ color: TM }}>No tools yet. Select agents to see available skills.</td></tr>
-                ) : tools.map(tool => (
-                  <tr key={tool.id} onClick={() => setSelectedTool(selectedTool?.id === tool.id ? null : tool)}
-                    className="cursor-pointer"
-                    style={{ borderTop: `1px solid ${LB}`, background: selectedTool?.id === tool.id ? LL : 'transparent' }}
-                    onMouseEnter={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = '#fdf8ff'; }}
-                    onMouseLeave={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = 'transparent'; }}>
-                    <td className="px-5 py-3">
-                      <span className="text-sm font-semibold" style={{ color: TH }}>{tool.name}</span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-medium uppercase"
-                        style={typeColor[tool.type] || { background: '#f3f4f6', color: '#6b7280' }}>
-                        {tool.type}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-xs" style={{ color: TM }}>
-                      {tool.description || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4 mb-6">
+            {isLoading ? (
+              <div className="p-10 text-center text-sm" style={{ color: TM, background: '#fff', borderRadius: '16px', border: `1.5px solid ${LB}` }}>Loading tools...</div>
+            ) : tools.length === 0 ? (
+              <div className="p-14 text-center" style={{ color: TM, background: '#fff', borderRadius: '16px', border: `1.5px solid ${LB}` }}>No tools yet.</div>
+            ) : Object.entries(groupedTools).map(([type, typeTools]) => (
+              <div key={type} className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+                {/* Accordion Header */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(type)}
+                  className="w-full px-5 py-4 flex items-center justify-between font-bold uppercase tracking-wider text-xs"
+                  style={{ background: LL, color: L, transition: 'background 0.2s', borderBottom: expandedGroups[type] ? `1.5px solid ${LB}` : 'none' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span 
+                      className="px-3 py-1 rounded-lg text-xs font-extrabold shadow-sm" 
+                      style={typeColor[type] || { background: '#f3f4f6', color: '#6b7280' }}
+                    >
+                      {type}
+                    </span>
+                    <span style={{ color: TM, fontWeight: 600 }}>{typeTools.length} Tool{typeTools.length !== 1 && 's'}</span>
+                  </div>
+                  <span style={{ transform: expandedGroups[type] ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                </button>
+                
+                {/* Accordion Body */}
+                {expandedGroups[type] && (
+                  <table className="min-w-full text-left">
+                    <thead>
+                      <tr style={{ background: '#fafafa' }}>
+                        <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: TM, width: '25%' }}>Name</th>
+                        <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider" style={{ color: TM }}>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {typeTools.map(tool => (
+                        <tr key={tool.id} onClick={() => setSelectedTool(selectedTool?.id === tool.id ? null : tool)}
+                          className="cursor-pointer transition-colors"
+                          style={{ borderTop: `1px solid ${LB}`, background: selectedTool?.id === tool.id ? LL : 'transparent' }}
+                          onMouseEnter={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = '#fdf8ff'; }}
+                          onMouseLeave={e => { if (selectedTool?.id !== tool.id) e.currentTarget.style.background = 'transparent'; }}>
+                          <td className="px-5 py-4">
+                            <span className="text-sm font-bold" style={{ color: TH }}>{tool.name}</span>
+                          </td>
+                          <td className="px-5 py-4 text-xs font-medium" style={{ color: TM, lineHeight: '1.4' }}>
+                            {tool.description || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Detail Panel moved up */}
