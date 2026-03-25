@@ -43,9 +43,15 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
       ? `Task Description: ${task.description}\n\nWorkflow Steps:\n${workflowSteps}\n\nPlease execute these steps systematically.`
       : `Task Description: ${task.description}\n\nPlease complete this task systematically.`;
 
-    const agentSystemPrompt = agents.length > 0 && agents[0].system_prompt
+    let agentSystemPrompt = agents.length > 0 && agents[0].system_prompt
       ? agents[0].system_prompt
       : 'You are a professional OpenCode AI workflow executor. Execute the task effectively.';
+
+    // Strict Tool Protocol — prevents hallucinated tool calls (e.g., brave_search)
+    if (openCodeTools.length > 0) {
+      const toolNames = openCodeTools.map(t => t.function.name).join(', ');
+      agentSystemPrompt += `\n\n[STRICT TOOL PROTOCOL]\n1. You MUST ONLY use these provided tools: ${toolNames}.\n2. NEVER hallucinate tools (e.g., brave_search, google_search) that are not in the list above.\n3. If a request cannot be fulfilled with these tools, state the limitation clearly.`;
+    }
 
     if (agents.length > 0) output += `Assigned Agent: ${agents[0].name}\n\n`;
 
