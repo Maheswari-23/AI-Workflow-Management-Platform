@@ -147,13 +147,11 @@ export default function ToolsPage() {
                     style={{ background: '#fff', borderBottom: expandedGroups[type] ? `1px solid ${LB}` : 'none' }}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="flex items-center justify-center w-6 h-6 rounded-md" style={{ background: LL, color: L }}>
-                        {typeIcon[type] || typeIcon.other}
-                      </span>
                       <span
-                        className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
                         style={{ background: LL, color: L }}
                       >
+                        {typeIcon[type] || typeIcon.other}
                         {type}
                       </span>
                       <span className="text-xs font-semibold" style={{ color: TM }}>
