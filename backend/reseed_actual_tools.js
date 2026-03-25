@@ -45,7 +45,10 @@ const realTools = [
   { name: 'log', type: 'system', description: 'Logs a standard message for workflow tracking.', endpoint: 'log', method: 'EXEC' },
 
   // Agent-to-Agent Tool
-  { name: 'call_agent', type: 'agent', description: 'Calls another specialized AI agent to perform a distinct sub-task.', endpoint: 'call_agent', method: 'EXEC' }
+  { name: 'call_agent', type: 'agent', description: 'Calls another specialized AI agent to perform a distinct sub-task.', endpoint: 'call_agent', method: 'EXEC' },
+
+  // Calculator
+  { name: 'Calculator', type: 'script', description: 'High-precision mathematical utility for budget calculations and data analysis.', endpoint: 'node -e "console.log(eval(process.argv[1]))"', method: 'EXEC' }
 ];
 
 db.serialize(() => {
