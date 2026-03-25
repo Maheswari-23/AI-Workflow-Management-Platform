@@ -125,7 +125,12 @@ export default function ToolsPage() {
                   onClick={() => toggleGroup(type)}
                 >
                   <div className="flex items-center gap-3">
-                    <h2 className="text-sm font-extrabold uppercase tracking-widest" style={{ color: TH }}>{type}</h2>
+                    <span 
+                      className="px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-widest shadow-sm" 
+                      style={{ background: '#c697f4', color: '#ffffff' }}
+                    >
+                      {type}
+                    </span>
                     <span 
                       className="px-2 py-0.5 rounded text-[10px] font-bold" 
                       style={{ background: LL, color: L, border: `1px solid ${LB}` }}
