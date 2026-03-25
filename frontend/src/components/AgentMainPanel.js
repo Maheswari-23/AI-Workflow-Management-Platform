@@ -54,8 +54,24 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
   const handleDryRun = async () => {
     if (!samplePrompt.trim()) { toast.info('Enter a sample prompt first'); return; }
     setIsDryRun(true);
-    setExecutionResult('Dry run started...\n\n1. Processing prompt...\n2. Analyzing task...\n3. Generating response...\n\nDry run completed successfully!');
-    setTimeout(() => setIsDryRun(false), 1500);
+    setExecutionResult('🧪 Dry Run started — sending prompt to AI...');
+    try {
+      const r = await fetch(`/api/agents/${selectedAgent.id}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: samplePrompt,
+          systemPrompt: `[DRY RUN MODE] You are being tested. Do NOT perform any real actions. Instead, describe what you WOULD do if this were a real execution.\n\n${systemPrompt}`,
+          skillFile: skillFile?.name,
+        }),
+      });
+      const d = await r.json();
+      setExecutionResult(`🧪 DRY RUN RESULT:\n\n${d.result || 'No response from AI.'}`);
+    } catch (err) {
+      setExecutionResult('Dry Run Error: ' + err.message);
+    } finally {
+      setIsDryRun(false);
+    }
   };
 
   const handleExecute = async () => {
