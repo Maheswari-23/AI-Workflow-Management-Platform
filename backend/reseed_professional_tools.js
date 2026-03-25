@@ -55,7 +55,7 @@ const professionalTools = [
     headers: '{}'
   },
   {
-    name: 'Standard_Office_Calculator',
+    name: 'Calculator',
     description: 'High-precision mathematical utility for budget calculations and data analysis.',
     type: 'script', method: 'EXEC', endpoint: 'node -e "console.log(eval(process.argv[1]))"',
     headers: '{}'
