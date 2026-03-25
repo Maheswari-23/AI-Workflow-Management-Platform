@@ -16,7 +16,6 @@ async function getDynamicTools() {
         type: 'object',
         properties: {
           requestBody: { type: 'string', description: 'JSON string of any required request body' },
-          query_params: { type: 'string', description: 'URL encoded query parameters to append' }
         },
         required: []
       };
@@ -77,6 +76,14 @@ async function getDynamicTools() {
             dirpath: { type: 'string', description: 'Path to the directory to list' }
           },
           required: ['dirpath']
+        };
+      } else if (tool.name === 'fetch_stock_price' || tool.name === 'get_stock_price') {
+        parameters = {
+          type: 'object',
+          properties: {
+            symbol: { type: 'string', description: 'Stock ticker symbol to fetch price for. Example: "AAPL" or "MSFT"' }
+          },
+          required: ['symbol']
         };
       }
 
@@ -222,6 +229,24 @@ async function executeTool(toolName, args, dynamicToolsList) {
         });
       } catch(e) {
         return JSON.stringify({ error: `Could not fetch IP info: ${e.message}` });
+      }
+    }
+
+    if (toolName === 'fetch_stock_price' || toolName === 'get_stock_price') {
+      const symbol = args.symbol || 'AAPL';
+      try {
+        const yahooFinance = require('yahoo-finance2').default;
+        const result = await yahooFinance.quote(symbol);
+        return JSON.stringify({
+          symbol: result.symbol,
+          shortName: result.shortName,
+          regularMarketPrice: result.regularMarketPrice,
+          regularMarketChange: result.regularMarketChange,
+          regularMarketChangePercent: result.regularMarketChangePercent,
+          currency: result.currency
+        });
+      } catch(e) {
+        return JSON.stringify({ error: `Could not fetch stock price for "${symbol}": ${e.message}` });
       }
     }
 

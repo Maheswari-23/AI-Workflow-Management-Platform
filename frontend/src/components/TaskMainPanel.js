@@ -150,7 +150,7 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
           <button type="button" onClick={handleGenerate} disabled={!formData.description || isGenerating}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-85 disabled:opacity-50 mb-4"
             style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
-            {isGenerating ? (<><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating...</>) : '✨ Generate Workflow Steps (AI)'}
+            {isGenerating ? (<><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating...</>) : 'Generate Workflow Steps (AI)'}
           </button>
           <label style={lbl}>Workflow Steps</label>
           <textarea name="workflow_steps" rows="6" value={formData.workflow_steps} onChange={handleChange}
