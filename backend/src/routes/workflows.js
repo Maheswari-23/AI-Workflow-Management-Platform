@@ -9,8 +9,7 @@ router.get('/', async (req, res) => {
     const tasks = await dbAll("SELECT * FROM tasks WHERE workflow_steps != '' ORDER BY updated_at DESC");
     const parsed = tasks.map(t => ({ 
       ...t, 
-      agents: safeParse(t.agents, []),
-      workflow_steps: safeParse(t.workflow_steps, [])
+      agents: safeParse(t.agents, [])
     }));
     res.json({ workflows: parsed });
   } catch (err) {
@@ -25,8 +24,7 @@ router.get('/:id', async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Workflow not found' });
     const parsed = {
       ...task,
-      agents: safeParse(task.agents, []),
-      workflow_steps: safeParse(task.workflow_steps, [])
+      agents: safeParse(task.agents, [])
     };
     res.json({ workflow: parsed });
   } catch (err) {

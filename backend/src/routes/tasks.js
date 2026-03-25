@@ -12,8 +12,7 @@ router.get('/', async (req, res) => {
     // Parse agents JSON array safely
     const parsed = tasks.map(t => ({ 
       ...t, 
-      agents: safeParse(t.agents, []),
-      workflow_steps: safeParse(t.workflow_steps, [])
+      agents: safeParse(t.agents, [])
     }));
     res.json({ tasks: parsed });
   } catch (err) {
@@ -28,8 +27,7 @@ router.get('/:id', async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     const parsed = {
       ...task,
-      agents: safeParse(task.agents, []),
-      workflow_steps: safeParse(task.workflow_steps, [])
+      agents: safeParse(task.agents, [])
     };
     res.json({ task: parsed });
   } catch (err) {
