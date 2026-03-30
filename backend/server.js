@@ -55,6 +55,22 @@ app.use('/api/approvals', require('./src/routes/approvals'));
 app.use('/api/memory', require('./src/routes/memory'));
 app.use('/api/canvas', require('./src/routes/canvas'));
 
+// SSE real-time stream
+const { broadcast } = require('./src/engine/workflowRunner');
+const sseClients = new Set();
+app.get('/api/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+  res.write('event: connected\ndata: {}\n\n');
+  // Patch broadcast to use this client
+  const workflowRunner = require('./src/engine/workflowRunner');
+  workflowRunner._addClient(res);
+  req.on('close', () => workflowRunner._removeClient(res));
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);

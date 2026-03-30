@@ -243,6 +243,34 @@ function initializeSchema() {
       )
     `);
 
+    // Task versions table (Workflow Versioning)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS task_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        version_number INTEGER NOT NULL,
+        snapshot TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Task dependencies table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        depends_on_task_id INTEGER NOT NULL,
+        condition TEXT DEFAULT 'on_success',
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (depends_on_task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Add retry columns to tasks if not exist
+    db.run(`ALTER TABLE tasks ADD COLUMN max_retries INTEGER DEFAULT 2`, () => {});
+    db.run(`ALTER TABLE tasks ADD COLUMN retry_delay_ms INTEGER DEFAULT 5000`, () => {});
+
     console.log('Database schema initialized.');
   });
 }

@@ -54,23 +54,57 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT update task
+// PUT update task (auto-snapshots version)
 router.put('/:id', async (req, res) => {
   try {
     const { name, description, agents, workflow_steps, status } = req.body;
+
+    // Snapshot current state before overwriting
+    const current = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    if (current) {
+      const lastVersion = await dbGet('SELECT MAX(version_number) as v FROM task_versions WHERE task_id = ?', [req.params.id]);
+      const nextVersion = (lastVersion?.v || 0) + 1;
+      await dbRun('INSERT INTO task_versions (task_id, version_number, snapshot) VALUES (?, ?, ?)',
+        [req.params.id, nextVersion, JSON.stringify(current)]);
+      // Keep only last 10 versions
+      await dbRun(`DELETE FROM task_versions WHERE task_id = ? AND id NOT IN (SELECT id FROM task_versions WHERE task_id = ? ORDER BY version_number DESC LIMIT 10)`,
+        [req.params.id, req.params.id]);
+    }
+
     await dbRun(
       `UPDATE tasks SET name = COALESCE(?, name), description = COALESCE(?, description),
        agents = COALESCE(?, agents), workflow_steps = COALESCE(?, workflow_steps),
        status = COALESCE(?, status), updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [
-        name, description,
-        agents !== undefined ? JSON.stringify(agents) : null,
-        workflow_steps, status, req.params.id
-      ]
+      [name, description, agents !== undefined ? JSON.stringify(agents) : null, workflow_steps, status, req.params.id]
     );
     const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json({ task: { ...task, agents: JSON.parse(task.agents || '[]') } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET task version history
+router.get('/:id/versions', async (req, res) => {
+  try {
+    const versions = await dbAll('SELECT id, version_number, created_at FROM task_versions WHERE task_id = ? ORDER BY version_number DESC', [req.params.id]);
+    res.json({ versions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST restore a version
+router.post('/:id/restore/:versionId', async (req, res) => {
+  try {
+    const version = await dbGet('SELECT * FROM task_versions WHERE id = ? AND task_id = ?', [req.params.versionId, req.params.id]);
+    if (!version) return res.status(404).json({ error: 'Version not found' });
+    const snap = JSON.parse(version.snapshot);
+    await dbRun(`UPDATE tasks SET name = ?, description = ?, agents = ?, workflow_steps = ?, status = 'draft', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [snap.name, snap.description, snap.agents, snap.workflow_steps, req.params.id]);
+    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    res.json({ task: { ...task, agents: JSON.parse(task.agents || '[]') }, message: `Restored to version ${version.version_number}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

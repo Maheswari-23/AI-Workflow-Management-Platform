@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { dbGet } = require('../database/db');
+const { decrypt } = require('../utils/crypto');
 
 /**
  * OpenCode Unified Client
@@ -63,7 +64,7 @@ async function getOpenCodeClient(providerName = null) {
   let modelName = 'llama-3.3-70b-versatile';
 
   if (providerDetails) {
-    apiKey = providerDetails.api_key || apiKey;
+    apiKey = decrypt(providerDetails.api_key) || apiKey;
     baseUrl = providerDetails.base_url || baseUrl;
     modelName = providerDetails.model || modelName;
   }

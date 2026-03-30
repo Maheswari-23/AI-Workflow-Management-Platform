@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 const axios = require('axios');
+const { encrypt, decrypt } = require('../utils/crypto');
 
 // GET all LLM providers
 router.get('/providers', async (req, res) => {
@@ -49,12 +50,12 @@ router.post('/providers', async (req, res) => {
         `UPDATE llm_providers SET api_key = COALESCE(?, api_key), base_url = COALESCE(?, base_url),
          model = COALESCE(?, model), temperature = ?, max_tokens = ?,
          configured = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?`,
-        [api_key, base_url, model, temperature, max_tokens, api_key ? 1 : 0, name]
+        [api_key ? encrypt(api_key) : null, base_url, model, temperature, max_tokens, api_key ? 1 : 0, name]
       );
     } else {
       await dbRun(
         'INSERT INTO llm_providers (name, api_key, base_url, model, temperature, max_tokens, configured) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [name, api_key || '', base_url || '', model || '', temperature, max_tokens, api_key ? 1 : 0]
+        [name, api_key ? encrypt(api_key) : '', base_url || '', model || '', temperature, max_tokens, api_key ? 1 : 0]
       );
     }
 

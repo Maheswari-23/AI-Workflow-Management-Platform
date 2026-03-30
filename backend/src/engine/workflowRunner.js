@@ -2,6 +2,15 @@ const { dbRun, dbGet, dbAll } = require('../database/db');
 const { getOpenCodeClient } = require('../opencode/client');
 const { getDynamicTools, executeTool } = require('../opencode/toolsAdapter');
 
+// ─── SSE clients (defined first so broadcast is available everywhere) ─────────
+const sseClients = new Set();
+function broadcast(event, data) {
+  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach(res => { try { res.write(msg); } catch(e) {} });
+}
+function _addClient(res) { sseClients.add(res); }
+function _removeClient(res) { sseClients.delete(res); }
+
 // ─── Memory Helpers ───────────────────────────────────────────────────────────
 
 async function getAgentMemory(agentId) {
@@ -107,7 +116,9 @@ async function waitForApproval(approvalId, timeoutMs = 5 * 60 * 1000) {
 
 // ─── Main Workflow Runner ─────────────────────────────────────────────────────
 
-async function run(task, triggerType = 'manual', scheduleId = null) {
+async function run(task, triggerType = 'manual', scheduleId = null, attempt = 1) {
+  const maxRetries = task.max_retries ?? 2;
+  const retryDelay = task.retry_delay_ms ?? 5000;
   const startTime = Date.now();
 
   const historyResult = await dbRun(
@@ -116,14 +127,23 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
   );
   const runId = historyResult.lastID;
 
+  // Helper to emit SSE + update DB output
+  async function emit(line) {
+    const current = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
+    const newOutput = (current?.output || '') + line + '\n';
+    await dbRun('UPDATE run_history SET output = ? WHERE id = ?', [newOutput, runId]);
+    broadcast('log', { runId, line, taskId: task.id });
+  }
+
   try {
     const agentIds = typeof task.agents === 'string' ? JSON.parse(task.agents || '[]') : (task.agents || []);
     const workflowSteps = task.workflow_steps || '';
 
-    let output = `=== Workflow Run Started ===\n`;
-    output += `Task: ${task.name}\nTrigger: ${triggerType}\nTime: ${new Date().toISOString()}\n\n`;
+    await emit(`=== Workflow Run Started ===`);
+    await emit(`Task: ${task.name} | Trigger: ${triggerType} | Attempt: ${attempt}/${maxRetries + 1}`);
+    await emit(`Time: ${new Date().toISOString()}`);
+    await emit('');
 
-    // Load all assigned agents (multi-agent support)
     let agents = [];
     if (agentIds.length > 0) {
       agents = await dbAll(`SELECT * FROM agents WHERE id IN (${agentIds.map(() => '?').join(',')})`, agentIds);
@@ -133,147 +153,129 @@ async function run(task, triggerType = 'manual', scheduleId = null) {
     const rawTools = await getDynamicTools();
 
     if (rawTools.length > 0) {
-      output += `Loaded ${rawTools.length} tool(s): ${rawTools.map(t => t.function.name).join(', ')}\n\n`;
+      await emit(`Loaded ${rawTools.length} tool(s): ${rawTools.map(t => t.function.name).join(', ')}`);
+      await emit('');
     }
 
     const taskPrompt = workflowSteps.trim()
       ? `Task: ${task.description}\n\nWorkflow Steps:\n${workflowSteps}\n\nExecute these steps systematically.`
       : `Task: ${task.description}\n\nComplete this task systematically.`;
 
-    // Check if workflow has approval gates (lines containing [APPROVAL] or [APPROVE])
     const steps = workflowSteps.split('\n').filter(s => s.trim());
     const hasApprovalGates = steps.some(s => /\[APPROVAL\]|\[APPROVE\]/i.test(s));
 
-    if (agents.length === 0) {
-      // No agents assigned — run with default system prompt
-      output += `No agents assigned. Running with default executor.\n`;
-      const defaultAgent = { id: 0, name: 'Default Executor', system_prompt: 'You are a professional AI workflow executor.' };
-      const result = await runAgent(defaultAgent, taskPrompt, opencode, rawTools);
-      output += result.log;
-    } else if (agents.length === 1 && !hasApprovalGates) {
-      // Single agent, no approval gates — original behavior
-      output += `Agent: ${agents[0].name}\n`;
-      const result = await runAgent(agents[0], taskPrompt, opencode, rawTools);
-      output += result.log;
-    } else if (agents.length > 1) {
-      // ── MULTI-AGENT COLLABORATION ──────────────────────────────────────────
-      output += `Multi-Agent Pipeline: ${agents.map(a => a.name).join(' → ')}\n\n`;
+    // ── Run agents ────────────────────────────────────────────────────────────
+    const runAgentWithEmit = async (agent, prompt, previousOutput = '') => {
+      const result = await runAgent(agent, prompt, opencode, rawTools, previousOutput);
+      for (const line of result.log.split('\n')) await emit(line);
+      return result;
+    };
 
+    if (agents.length === 0) {
+      await emit('No agents assigned. Running with default executor.');
+      const defaultAgent = { id: 0, name: 'Default Executor', system_prompt: 'You are a professional AI workflow executor.' };
+      await runAgentWithEmit(defaultAgent, taskPrompt);
+    } else if (agents.length === 1 && !hasApprovalGates) {
+      await emit(`Agent: ${agents[0].name}`);
+      await runAgentWithEmit(agents[0], taskPrompt);
+    } else if (agents.length > 1) {
+      await emit(`Multi-Agent Pipeline: ${agents.map(a => a.name).join(' → ')}`);
+      await emit('');
       let previousOutput = '';
       for (let i = 0; i < agents.length; i++) {
         const agent = agents[i];
-        output += `\n[Step ${i + 1}/${agents.length}] Handing off to: ${agent.name}\n`;
-
+        await emit(`[Step ${i + 1}/${agents.length}] Handing off to: ${agent.name}`);
         await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['online', agent.id]);
-        const result = await runAgent(agent, taskPrompt, opencode, rawTools, previousOutput);
+        const result = await runAgentWithEmit(agent, taskPrompt, previousOutput);
         await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', agent.id]);
-
-        output += result.log;
         previousOutput = result.output;
 
-        // Update run history with progress
-        await dbRun('UPDATE run_history SET output = ? WHERE id = ?', [output, runId]);
-
-        // Check if next step needs approval
         if (i < agents.length - 1) {
           const nextAgent = agents[i + 1];
-          output += `\n⏸ Creating approval gate before handing off to ${nextAgent.name}...\n`;
-          await dbRun('UPDATE run_history SET output = ?, status = ? WHERE id = ?', [output, 'awaiting_approval', runId]);
-
-          const approvalId = await createApprovalGate(
-            runId, task.id, task.name, i + 1,
-            `Review output from ${agent.name} before passing to ${nextAgent.name}`,
-            previousOutput
-          );
-
-          output += `Waiting for human approval (ID: ${approvalId})...\n`;
-          await dbRun('UPDATE run_history SET output = ? WHERE id = ?', [output, runId]);
-
+          await emit(`\n⏸ Approval gate before ${nextAgent.name}...`);
+          await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['awaiting_approval', runId]);
+          broadcast('status', { runId, status: 'awaiting_approval', taskId: task.id });
+          const approvalId = await createApprovalGate(runId, task.id, task.name, i + 1, `Review output from ${agent.name} before passing to ${nextAgent.name}`, previousOutput);
+          await emit(`Waiting for approval (ID: ${approvalId})...`);
           const approval = await waitForApproval(approvalId);
-
           if (approval.status === 'rejected') {
-            output += `\n❌ Approval rejected at step ${i + 1}. Reason: ${approval.feedback || approval.decision}\n`;
-            output += `Workflow halted.\n`;
+            await emit(`\n❌ Rejected. Reason: ${approval.feedback || approval.decision}`);
             const duration = Date.now() - startTime;
-            await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-              ['failed', output, duration, runId]);
-            await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['draft', task.id]);
-            return { id: runId, status: 'failed', output, duration_ms: duration };
+            await dbRun('UPDATE run_history SET status = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['failed', duration, runId]);
+            await dbRun('UPDATE tasks SET status = ? WHERE id = ?', ['draft', task.id]);
+            broadcast('status', { runId, status: 'failed', taskId: task.id });
+            return { id: runId, status: 'failed', duration_ms: duration };
           }
-
-          output += `✅ Approved! Continuing to ${nextAgent.name}...\n`;
-          if (approval.feedback) {
-            previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
-          }
+          await emit(`✅ Approved! Continuing to ${nextAgent.name}...`);
+          if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
         }
       }
     } else if (hasApprovalGates) {
-      // Single agent with approval gates in workflow steps
-      output += `Agent: ${agents[0].name} (with approval gates)\n\n`;
+      await emit(`Agent: ${agents[0].name} (with approval gates)`);
       const agent = agents[0];
       let previousOutput = '';
-
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
         const needsApproval = /\[APPROVAL\]|\[APPROVE\]/i.test(step);
         const cleanStep = step.replace(/\[APPROVAL\]|\[APPROVE\]/gi, '').trim();
-
         if (!cleanStep) continue;
-
-        output += `\n[Step ${i + 1}] ${cleanStep}\n`;
+        await emit(`\n[Step ${i + 1}] ${cleanStep}`);
         await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['online', agent.id]);
-        const result = await runAgent(agent, cleanStep, opencode, rawTools, previousOutput);
+        const result = await runAgentWithEmit(agent, cleanStep, previousOutput);
         await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', agent.id]);
-
-        output += result.log;
         previousOutput = result.output;
-        await dbRun('UPDATE run_history SET output = ? WHERE id = ?', [output, runId]);
-
         if (needsApproval && i < steps.length - 1) {
-          output += `\n⏸ Approval required before next step...\n`;
-          await dbRun('UPDATE run_history SET output = ?, status = ? WHERE id = ?', [output, 'awaiting_approval', runId]);
-
-          const approvalId = await createApprovalGate(
-            runId, task.id, task.name, i,
-            `Review step ${i + 1} output before continuing`,
-            previousOutput
-          );
-
+          await emit('\n⏸ Approval required before next step...');
+          await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['awaiting_approval', runId]);
+          broadcast('status', { runId, status: 'awaiting_approval', taskId: task.id });
+          const approvalId = await createApprovalGate(runId, task.id, task.name, i, `Review step ${i + 1} output`, previousOutput);
           const approval = await waitForApproval(approvalId);
-
           if (approval.status === 'rejected') {
-            output += `\n❌ Rejected at step ${i + 1}. Halting workflow.\n`;
+            await emit(`\n❌ Rejected at step ${i + 1}. Halting.`);
             const duration = Date.now() - startTime;
-            await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-              ['failed', output, duration, runId]);
-            await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['draft', task.id]);
-            return { id: runId, status: 'failed', output, duration_ms: duration };
+            await dbRun('UPDATE run_history SET status = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['failed', duration, runId]);
+            await dbRun('UPDATE tasks SET status = ? WHERE id = ?', ['draft', task.id]);
+            broadcast('status', { runId, status: 'failed', taskId: task.id });
+            return { id: runId, status: 'failed', duration_ms: duration };
           }
-
-          output += `✅ Approved! Continuing...\n`;
+          await emit('✅ Approved! Continuing...');
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
         }
       }
     }
 
-    output += `\n=== Workflow Completed ===\n`;
+    await emit('\n=== Workflow Completed ===');
     const duration = Date.now() - startTime;
-    output += `Duration: ${(duration / 1000).toFixed(2)}s`;
+    await emit(`Duration: ${(duration / 1000).toFixed(2)}s`);
 
+    const finalRun = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
     await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-      ['completed', output, duration, runId]);
+      ['completed', finalRun.output, duration, runId]);
     await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', task.id]);
+    broadcast('status', { runId, status: 'completed', taskId: task.id });
 
-    return { id: runId, status: 'completed', output, duration_ms: duration };
+    return { id: runId, status: 'completed', output: finalRun.output, duration_ms: duration };
 
   } catch (err) {
     const duration = Date.now() - startTime;
     const errorMsg = err.response?.data?.error?.message || err.message;
+    console.error('WorkflowRunner error:', errorMsg);
+
+    // ── Retry logic ───────────────────────────────────────────────────────────
+    if (attempt <= maxRetries) {
+      await dbRun('UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
+        ['failed', `Attempt ${attempt} failed: ${errorMsg}. Retrying...`, duration, runId]);
+      broadcast('status', { runId, status: 'retrying', attempt, taskId: task.id });
+      await new Promise(r => setTimeout(r, retryDelay));
+      return run(task, triggerType, scheduleId, attempt + 1);
+    }
+
     await dbRun('UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
       ['failed', errorMsg, duration, runId]);
-    console.error('WorkflowRunner error:', errorMsg);
+    await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['draft', task.id]);
+    broadcast('status', { runId, status: 'failed', taskId: task.id });
     throw err;
   }
 }
 
-module.exports = { run };
+module.exports = { run, broadcast, _addClient, _removeClient };

@@ -11,6 +11,8 @@ const lbl={display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'8px',c
 export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   const [formData, setFormData] = useState({ name:'', description:'', agents:[], workflow_steps:'' });
   const [availableAgents, setAvailableAgents] = useState([]);
+  const [versions, setVersions] = useState([]);
+  const [showVersions, setShowVersions] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -42,6 +44,20 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
     ...p,
     agents: p.agents.includes(id) ? p.agents.filter(a => a !== id) : [...p.agents, id],
   }));
+
+  const loadVersions = async () => {
+    const res = await fetch(`/api/tasks/${selectedTask.id}/versions`);
+    const data = await res.json();
+    setVersions(data.versions || []);
+    setShowVersions(true);
+  };
+
+  const restoreVersion = async (versionId) => {
+    if (!confirm('Restore this version? Current changes will be overwritten.')) return;
+    const res = await fetch(`/api/tasks/${selectedTask.id}/restore/${versionId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.task) { onTaskUpdate(data.task); setShowVersions(false); toast.success('Version restored!'); }
+  };
 
   const handleGenerate = async () => {
     if (!formData.description) return;
@@ -94,13 +110,32 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
 
   const handleRun = async () => {
     setIsRunning(true);
-    setRunOutput('Starting workflow run...');
+    setRunOutput('Starting workflow run...\n');
+
+    // Open SSE stream for live output
+    let eventSource;
+    try {
+      eventSource = new EventSource('/api/stream');
+      eventSource.addEventListener('log', (e) => {
+        const { line } = JSON.parse(e.data);
+        setRunOutput(prev => prev + line + '\n');
+      });
+      eventSource.addEventListener('status', (e) => {
+        const { status } = JSON.parse(e.data);
+        if (status === 'completed' || status === 'failed') {
+          eventSource.close();
+          setIsRunning(false);
+          if (status === 'completed') onTaskUpdate({ ...selectedTask, status: 'completed' });
+        }
+      });
+    } catch(e) { /* SSE not supported, fall back */ }
+
     try {
       const res = await fetch(`/api/tasks/${selectedTask.id}/run`, { method: 'POST' });
       const data = await res.json();
       if (data.run) {
         setRunOutput(data.run.output || 'Run completed.');
-        onTaskUpdate({ ...selectedTask, status: 'completed' });
+        onTaskUpdate({ ...selectedTask, status: data.run.status || 'completed' });
       } else {
         setRunOutput('Error: ' + (data.error || 'Unknown error'));
       }
@@ -108,6 +143,7 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       setRunOutput('Error: ' + err.message);
     } finally {
       setIsRunning(false);
+      if (eventSource) eventSource.close();
     }
   };
 
@@ -116,10 +152,40 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto" style={{ background: '#fafafa' }}>
       <div className="p-6" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
-        <h1 className="text-2xl font-bold" style={{ color: TH }}>Edit Task Configuration</h1>
-        <p className="text-sm mt-1" style={{ color: TM }}>Define task parameters, assign agents, and generate workflow steps.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: TH }}>Edit Task Configuration</h1>
+            <p className="text-sm mt-1" style={{ color: TM }}>Define task parameters, assign agents, and generate workflow steps.</p>
+          </div>
+          <button onClick={loadVersions} className="text-xs px-3 py-1.5 rounded-lg font-medium hover:opacity-80"
+            style={{ background: LL, color: L, border: `1px solid ${LB}` }}>
+            Version History
+          </button>
+        </div>
       </div>
       <div className="p-6 max-w-4xl mx-auto w-full space-y-5">
+        {/* Version History Panel */}
+        {showVersions && (
+          <div style={card}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold" style={{ color: TH }}>Version History</h3>
+              <button onClick={() => setShowVersions(false)} style={{ color: TM }}>✕</button>
+            </div>
+            {versions.length === 0 ? (
+              <p className="text-sm" style={{ color: TM }}>No versions saved yet. Save the task to create a version.</p>
+            ) : versions.map(v => (
+              <div key={v.id} className="flex items-center justify-between py-2" style={{ borderBottom: `1px solid ${LB}` }}>
+                <div>
+                  <span className="text-sm font-medium" style={{ color: TH }}>Version {v.version_number}</span>
+                  <span className="text-xs ml-2" style={{ color: TM }}>{new Date(v.created_at).toLocaleString()}</span>
+                </div>
+                <button onClick={() => restoreVersion(v.id)} className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
+                  style={{ background: LL, color: L }}>Restore</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={card}><label style={lbl}>Task Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} style={inp} /></div>
         <div style={card}><label style={lbl}>Description</label><textarea name="description" rows="4" value={formData.description} onChange={handleChange} placeholder="Describe what this task should accomplish..." style={{ ...inp, resize: 'vertical' }} /></div>
         
