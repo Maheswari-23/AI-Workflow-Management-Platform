@@ -51,6 +51,9 @@ app.use('/api/tools', require('./src/routes/tools'));
 app.use('/api/llm', require('./src/routes/llm'));
 app.use('/api/schedules', require('./src/routes/schedules'));
 app.use('/api/history', require('./src/routes/history'));
+app.use('/api/approvals', require('./src/routes/approvals'));
+app.use('/api/memory', require('./src/routes/memory'));
+app.use('/api/canvas', require('./src/routes/canvas'));
 
 // Error handling
 app.use((err, req, res, next) => {

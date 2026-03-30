@@ -15,12 +15,35 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
   const [isExecuting, setIsExecuting] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('config');
+  const [memory, setMemory] = useState([]);
   const fileInputRef = useRef(null);
 
   // Sync system prompt when a new agent is selected
   useEffect(() => {
     setSystemPrompt(selectedAgent?.system_prompt || '');
+    setActiveTab('config');
+    if (selectedAgent?.id) fetchMemory(selectedAgent.id);
   }, [selectedAgent?.id]);
+
+  const fetchMemory = async (agentId) => {
+    try {
+      const res = await fetch(`/api/memory/${agentId}`);
+      const data = await res.json();
+      setMemory(data.memory || []);
+    } catch (err) { console.error(err); }
+  };
+
+  const clearMemory = async () => {
+    if (!confirm('Clear all memory for this agent?')) return;
+    await fetch(`/api/memory/${selectedAgent.id}`, { method: 'DELETE' });
+    setMemory([]);
+  };
+
+  const deleteMemoryKey = async (key) => {
+    await fetch(`/api/memory/${selectedAgent.id}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    setMemory(prev => prev.filter(m => m.key !== key));
+  };
 
   const handleSkillFileUpload = (e) => {
     const file = e.target.files[0];
@@ -105,57 +128,100 @@ export default function AgentMainPanel({ selectedAgent, onAgentUpdate, onSaveAge
           <button onClick={checkAvailability} className="ml-4 px-4 py-1.5 text-white text-sm rounded-lg hover:opacity-85 transition-opacity"
             style={{ background: L, boxShadow: `0 2px 8px rgba(181,123,238,0.35)` }}>Check Availability</button>
         </div>
+        {/* Tabs */}
+        <div className="flex gap-1 mt-4">
+          {['config', 'test', 'memory'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg capitalize"
+              style={activeTab === tab ? { background: L, color: '#fff' } : { background: LL, color: L }}>
+              {tab === 'memory' ? `Memory (${memory.length})` : tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto" style={{ background: '#fafafa' }}>
         <div className="max-w-4xl mx-auto space-y-5">
-          <div style={card}>
-            <h3 className="text-sm font-bold mb-3" style={{ color: TH }}>Skill File (.md)</h3>
-            <input type="file" ref={fileInputRef} onChange={handleSkillFileUpload} accept=".md" className="hidden" />
-            <div className="flex items-center gap-3">
-              <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 text-sm rounded-lg font-medium hover:opacity-80"
-                style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>Upload Skill File</button>
-              {skillFile && <span className="text-sm font-medium text-green-600">✓ {skillFile.name}</span>}
-            </div>
-          </div>
 
-          <div style={card}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold" style={{ color: TH }}>System Instructions</h3>
-              <button onClick={handleSavePrompt} disabled={isSaving}
-                className="px-3 py-1 text-xs font-semibold text-white rounded-lg hover:opacity-85 disabled:opacity-50"
-                style={{ background: L }}>
-                {isSaving ? 'Saving...' : 'Save Prompt'}
-              </button>
-            </div>
-            <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Enter system instructions for this agent..." rows={4} style={inp} />
-          </div>
-
-          <div style={card}>
-            <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>Test Execution</h3>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: TM }}>Sample Prompt</label>
-            <textarea value={samplePrompt} onChange={(e) => setSamplePrompt(e.target.value)}
-              placeholder="Enter a sample prompt to test the agent..." rows={3} style={{ ...inp, marginBottom: '16px' }} />
-            <div className="flex gap-3 mb-4">
-              <button onClick={handleDryRun} disabled={isDryRun || isExecuting}
-                className="px-4 py-2 text-sm rounded-lg font-medium hover:opacity-85 disabled:opacity-50"
-                style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>
-                {isDryRun ? 'Running...' : 'Dry Run'}
-              </button>
-              <button onClick={handleExecute} disabled={isExecuting || isDryRun}
-                className="px-4 py-2 text-white text-sm rounded-lg font-medium hover:opacity-85 disabled:opacity-50"
-                style={{ background: L, boxShadow: `0 2px 8px rgba(181,123,238,0.3)` }}>
-                {isExecuting ? 'Executing...' : 'Execute'}
-              </button>
-            </div>
-            {executionResult && (
-              <div className="rounded-xl p-4" style={{ background: '#fafafa', border: `1.5px solid ${LB}` }}>
-                <h4 className="text-xs font-bold mb-2" style={{ color: L }}>Result:</h4>
-                <pre className="text-sm whitespace-pre-wrap font-mono" style={{ color: TH }}>{executionResult}</pre>
+          {activeTab === 'config' && (<>
+            <div style={card}>
+              <h3 className="text-sm font-bold mb-3" style={{ color: TH }}>Skill File (.md)</h3>
+              <input type="file" ref={fileInputRef} onChange={handleSkillFileUpload} accept=".md" className="hidden" />
+              <div className="flex items-center gap-3">
+                <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 text-sm rounded-lg font-medium hover:opacity-80"
+                  style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>Upload Skill File</button>
+                {skillFile && <span className="text-sm font-medium text-green-600">✓ {skillFile.name}</span>}
               </div>
-            )}
-          </div>
+            </div>
+            <div style={card}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold" style={{ color: TH }}>System Instructions</h3>
+                <button onClick={handleSavePrompt} disabled={isSaving}
+                  className="px-3 py-1 text-xs font-semibold text-white rounded-lg hover:opacity-85 disabled:opacity-50"
+                  style={{ background: L }}>
+                  {isSaving ? 'Saving...' : 'Save Prompt'}
+                </button>
+              </div>
+              <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)}
+                placeholder="Enter system instructions for this agent..." rows={4} style={inp} />
+            </div>
+          </>)}
+
+          {activeTab === 'test' && (
+            <div style={card}>
+              <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>Test Execution</h3>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: TM }}>Sample Prompt</label>
+              <textarea value={samplePrompt} onChange={(e) => setSamplePrompt(e.target.value)}
+                placeholder="Enter a sample prompt to test the agent..." rows={3} style={{ ...inp, marginBottom: '16px' }} />
+              <div className="flex gap-3 mb-4">
+                <button onClick={handleDryRun} disabled={isDryRun || isExecuting}
+                  className="px-4 py-2 text-sm rounded-lg font-medium hover:opacity-85 disabled:opacity-50"
+                  style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>
+                  {isDryRun ? 'Running...' : 'Dry Run'}
+                </button>
+                <button onClick={handleExecute} disabled={isExecuting || isDryRun}
+                  className="px-4 py-2 text-white text-sm rounded-lg font-medium hover:opacity-85 disabled:opacity-50"
+                  style={{ background: L, boxShadow: `0 2px 8px rgba(181,123,238,0.3)` }}>
+                  {isExecuting ? 'Executing...' : 'Execute'}
+                </button>
+              </div>
+              {executionResult && (
+                <div className="rounded-xl p-4" style={{ background: '#fafafa', border: `1.5px solid ${LB}` }}>
+                  <h4 className="text-xs font-bold mb-2" style={{ color: L }}>Result:</h4>
+                  <pre className="text-sm whitespace-pre-wrap font-mono" style={{ color: TH }}>{executionResult}</pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'memory' && (
+            <div style={card}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold" style={{ color: TH }}>Long-Term Memory</h3>
+                {memory.length > 0 && (
+                  <button onClick={clearMemory} className="text-xs px-3 py-1 rounded-lg hover:opacity-80"
+                    style={{ background: '#fee2e2', color: '#991b1b' }}>Clear All</button>
+                )}
+              </div>
+              {memory.length === 0 ? (
+                <p className="text-sm text-center py-6" style={{ color: TM }}>No memory yet. Run this agent on a task to build context.</p>
+              ) : (
+                <div className="space-y-2">
+                  {memory.map(m => (
+                    <div key={m.id} className="p-3 rounded-xl flex items-start gap-3" style={{ background: '#fafafa', border: `1px solid ${LB}` }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono font-bold truncate" style={{ color: L }}>{m.key}</p>
+                        <p className="text-xs mt-1 line-clamp-2" style={{ color: TH }}>{m.value}</p>
+                        <p className="text-xs mt-1" style={{ color: TM }}>{new Date(m.updated_at).toLocaleString()}</p>
+                      </div>
+                      <button onClick={() => deleteMemoryKey(m.key)} className="text-xs hover:opacity-70 flex-shrink-0" style={{ color: TM }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>

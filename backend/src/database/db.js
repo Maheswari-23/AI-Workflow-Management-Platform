@@ -135,6 +135,66 @@ function initializeSchema() {
     // Set Groq as default if no default is set
     db.run(`UPDATE llm_providers SET is_default = 1 WHERE name = 'Groq' AND NOT EXISTS (SELECT 1 FROM llm_providers WHERE is_default = 1)`);
 
+    // Agent Long-Term Memory table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS agent_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(agent_id, key),
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Workflow nodes table (Visual Canvas)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS workflow_nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        node_id TEXT NOT NULL,
+        type TEXT DEFAULT 'agent',
+        label TEXT DEFAULT '',
+        agent_id INTEGER,
+        config TEXT DEFAULT '{}',
+        position_x REAL DEFAULT 0,
+        position_y REAL DEFAULT 0,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Workflow edges table (Visual Canvas connections)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS workflow_edges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        source_node_id TEXT NOT NULL,
+        target_node_id TEXT NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Pending approvals table (Human-in-the-Loop)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS pending_approvals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id INTEGER NOT NULL,
+        task_id INTEGER,
+        task_name TEXT,
+        step_index INTEGER DEFAULT 0,
+        step_description TEXT DEFAULT '',
+        agent_output TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        decision TEXT DEFAULT '',
+        feedback TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        resolved_at DATETIME,
+        FOREIGN KEY (run_id) REFERENCES run_history(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('Database schema initialized.');
   });
 }
