@@ -126,6 +126,18 @@ async function run(task, triggerType = 'manual', scheduleId = null, attempt = 1)
     [task.id, task.name, scheduleId, triggerType, 'running', '']
   );
   const runId = historyResult.lastID;
+  return _executeRun(task, triggerType, scheduleId, attempt, runId, startTime);
+}
+
+// Variant that accepts a pre-created runId (for fire-and-forget from route)
+async function runWithId(task, triggerType = 'manual', scheduleId = null, runId, attempt = 1) {
+  const startTime = Date.now();
+  return _executeRun(task, triggerType, scheduleId, attempt, runId, startTime);
+}
+
+async function _executeRun(task, triggerType, scheduleId, attempt, runId, startTime) {
+  const maxRetries = task.max_retries ?? 2;
+  const retryDelay = task.retry_delay_ms ?? 5000;
 
   // Helper to emit SSE + update DB output
   async function emit(line) {
@@ -267,7 +279,7 @@ async function run(task, triggerType = 'manual', scheduleId = null, attempt = 1)
         ['failed', `Attempt ${attempt} failed: ${errorMsg}. Retrying...`, duration, runId]);
       broadcast('status', { runId, status: 'retrying', attempt, taskId: task.id });
       await new Promise(r => setTimeout(r, retryDelay));
-      return run(task, triggerType, scheduleId, attempt + 1);
+      return _executeRun(task, triggerType, scheduleId, attempt + 1, runId, Date.now());
     }
 
     await dbRun('UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
@@ -278,4 +290,4 @@ async function run(task, triggerType = 'manual', scheduleId = null, attempt = 1)
   }
 }
 
-module.exports = { run, broadcast, _addClient, _removeClient };
+module.exports = { run, runWithId, broadcast, _addClient, _removeClient };

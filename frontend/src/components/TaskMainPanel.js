@@ -110,40 +110,69 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
 
   const handleRun = async () => {
     setIsRunning(true);
-    setRunOutput('Starting workflow run...\n');
-
-    // Open SSE stream for live output
-    let eventSource;
-    try {
-      eventSource = new EventSource('/api/stream');
-      eventSource.addEventListener('log', (e) => {
-        const { line } = JSON.parse(e.data);
-        setRunOutput(prev => prev + line + '\n');
-      });
-      eventSource.addEventListener('status', (e) => {
-        const { status } = JSON.parse(e.data);
-        if (status === 'completed' || status === 'failed') {
-          eventSource.close();
-          setIsRunning(false);
-          if (status === 'completed') onTaskUpdate({ ...selectedTask, status: 'completed' });
-        }
-      });
-    } catch(e) { /* SSE not supported, fall back */ }
+    setRunOutput('Starting workflow...\n');
 
     try {
+      // 1. Fire the run — returns immediately with runId
       const res = await fetch(`/api/tasks/${selectedTask.id}/run`, { method: 'POST' });
       const data = await res.json();
-      if (data.run) {
-        setRunOutput(data.run.output || 'Run completed.');
-        onTaskUpdate({ ...selectedTask, status: data.run.status || 'completed' });
-      } else {
-        setRunOutput('Error: ' + (data.error || 'Unknown error'));
+      if (!data.runId) {
+        setRunOutput('Error: ' + (data.error || 'Failed to start'));
+        setIsRunning(false);
+        return;
       }
+
+      const runId = data.runId;
+      setRunOutput(`Run started (ID: #${runId})\n`);
+
+      // 2. Open SSE stream for live output
+      const eventSource = new EventSource('/api/stream');
+
+      eventSource.addEventListener('log', (e) => {
+        try {
+          const { line, runId: eRunId } = JSON.parse(e.data);
+          if (eRunId === runId) setRunOutput(prev => prev + line + '\n');
+        } catch(err) {}
+      });
+
+      eventSource.addEventListener('status', (e) => {
+        try {
+          const { status: s, runId: eRunId } = JSON.parse(e.data);
+          if (eRunId !== runId) return;
+          if (s === 'completed') {
+            eventSource.close();
+            setIsRunning(false);
+            onTaskUpdate({ ...selectedTask, status: 'completed' });
+          } else if (s === 'failed') {
+            eventSource.close();
+            setIsRunning(false);
+          } else if (s === 'retrying') {
+            setRunOutput(prev => prev + '\n⟳ Retrying...\n');
+          }
+        } catch(err) {}
+      });
+
+      // 3. Polling fallback — if SSE doesn't fire within 30s, poll for output
+      const pollInterval = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/tasks/${selectedTask.id}/run/${runId}/output`);
+          const d = await r.json();
+          if (d.status === 'completed' || d.status === 'failed') {
+            clearInterval(pollInterval);
+            eventSource.close();
+            setRunOutput(d.output || d.error || 'Run finished.');
+            setIsRunning(false);
+            if (d.status === 'completed') onTaskUpdate({ ...selectedTask, status: 'completed' });
+          }
+        } catch(e) {}
+      }, 4000);
+
+      // Clean up poll after 10 min max
+      setTimeout(() => { clearInterval(pollInterval); eventSource.close(); setIsRunning(false); }, 600000);
+
     } catch (err) {
       setRunOutput('Error: ' + err.message);
-    } finally {
       setIsRunning(false);
-      if (eventSource) eventSource.close();
     }
   };
 

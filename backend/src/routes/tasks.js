@@ -121,13 +121,36 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST run a task (triggers workflow engine)
+// POST run a task — fires async, returns runId immediately
 router.post('/:id/run', async (req, res) => {
   try {
     const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    const result = await workflowRunner.run(task, 'manual');
-    res.json({ run: result });
+
+    // Create run record immediately so frontend has a runId to track
+    const historyResult = await dbRun(
+      'INSERT INTO run_history (task_id, task_name, trigger_type, status, output) VALUES (?, ?, ?, ?, ?)',
+      [task.id, task.name, 'manual', 'running', '']
+    );
+    const runId = historyResult.lastID;
+
+    // Fire workflow in background — don't await
+    workflowRunner.runWithId(task, 'manual', null, runId).catch(err => {
+      console.error('Background run error:', err.message);
+    });
+
+    res.json({ runId, status: 'running', message: 'Workflow started' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET live output for a run (polling fallback)
+router.get('/:taskId/run/:runId/output', async (req, res) => {
+  try {
+    const run = await dbGet('SELECT status, output, error, duration_ms FROM run_history WHERE id = ?', [req.params.runId]);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    res.json(run);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
