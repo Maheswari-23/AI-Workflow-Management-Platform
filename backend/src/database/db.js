@@ -135,6 +135,54 @@ function initializeSchema() {
     // Set Groq as default if no default is set
     db.run(`UPDATE llm_providers SET is_default = 1 WHERE name = 'Groq' AND NOT EXISTS (SELECT 1 FROM llm_providers WHERE is_default = 1)`);
 
+    // Seed built-in tools
+    const builtinTools = [
+      // Utility
+      ['get_current_time',   'system',  'Get current date, time, timezone and unix timestamp.',                          '', 'GET'],
+      ['generate_uuid',      'system',  'Generate a random UUID v4.',                                                    '', 'GET'],
+      ['calculator',         'system',  'Evaluate a math expression e.g. "2 * (5 + 3)".',                               '', 'GET'],
+      ['log',                'system',  'Log a message to workflow output.',                                             '', 'GET'],
+      ['random_number',      'system',  'Generate a random integer between min and max.',                                '', 'GET'],
+      ['format_date',        'system',  'Format a date or get current date in multiple formats.',                        '', 'GET'],
+      ['count_words',        'system',  'Count words, characters and sentences in text.',                                '', 'GET'],
+      ['base64_encode',      'system',  'Encode text to base64.',                                                        '', 'GET'],
+      ['base64_decode',      'system',  'Decode a base64 string to text.',                                               '', 'GET'],
+      ['string_replace',     'system',  'Replace all occurrences of a substring in text.',                               '', 'GET'],
+      ['string_upper',       'system',  'Convert text to uppercase.',                                                    '', 'GET'],
+      ['string_lower',       'system',  'Convert text to lowercase.',                                                    '', 'GET'],
+      ['parse_json',         'system',  'Parse a JSON string and optionally extract a field.',                           '', 'GET'],
+      // File system
+      ['read_file',          'fs',      'Read the contents of a file from the server.',                                  '', 'GET'],
+      ['write_file',         'fs',      'Write content to a file on the server.',                                        '', 'GET'],
+      ['list_directory',     'fs',      'List files in a directory on the server.',                                      '', 'GET'],
+      ['run_shell_command',  'fs',      'Execute a shell command on the server and return stdout.',                      '', 'EXEC'],
+      // Web & Browser
+      ['web_search',         'browser', 'Search the web using DuckDuckGo and return top results.',                      '', 'GET'],
+      ['fetch_webpage',      'browser', 'Fetch and extract text content from any URL.',                                  '', 'GET'],
+      ['scrape_links',       'browser', 'Extract all hyperlinks from a webpage.',                                        '', 'GET'],
+      ['http_request',       'api',     'Make a custom HTTP request to any API endpoint.',                               '', 'GET'],
+      // Data & Finance
+      ['get_weather',        'api',     'Get current weather for a city.',                                               'https://wttr.in', 'GET'],
+      ['get_ip_info',        'api',     'Get geolocation and ISP info for an IP address.',                               'https://ipapi.co', 'GET'],
+      ['fetch_stock_price',  'api',     'Fetch real-time or historical stock price data.',                               '', 'GET'],
+      ['get_crypto_price',   'api',     'Get current cryptocurrency price from CoinGecko.',                              'https://api.coingecko.com', 'GET'],
+      ['get_exchange_rate',  'api',     'Get live currency exchange rates and convert amounts.',                         'https://open.er-api.com', 'GET'],
+      ['get_news',           'api',     'Fetch latest news headlines for a topic.',                                      '', 'GET'],
+      ['get_public_holidays','api',     'Get public holidays for a country and year.',                                   'https://date.nager.at', 'GET'],
+      // AI powered
+      ['summarize_text',     'ai',      'Summarize a long piece of text using the configured LLM.',                     '', 'GET'],
+      ['extract_keywords',   'ai',      'Extract the most important keywords from text using LLM.',                     '', 'GET'],
+      ['translate_text',     'ai',      'Translate text to another language using the configured LLM.',                 '', 'GET'],
+      ['ask_llm',            'ai',      'Ask the configured LLM a question and get a response.',                        '', 'GET'],
+    ];
+
+    for (const [name, type, description, endpoint, method] of builtinTools) {
+      db.run(
+        `INSERT OR IGNORE INTO tools (name, type, description, endpoint, method, status) VALUES (?, ?, ?, ?, ?, 'active')`,
+        [name, type, description, endpoint, method]
+      );
+    }
+
     // Agent Long-Term Memory table
     db.run(`
       CREATE TABLE IF NOT EXISTS agent_memory (

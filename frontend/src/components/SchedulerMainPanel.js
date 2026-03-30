@@ -8,7 +8,9 @@ const card={background:'#fff',border:`1.5px solid ${LB}`,borderRadius:'16px',pad
 const inp={width:'100%',padding:'10px 14px',border:`1.5px solid ${LB}`,borderRadius:'10px',background:'#fff',color:TH,fontSize:'14px'};
 const lbl={display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'8px',color:'#4a3b66'};
 
-export default function SchedulerMainPanel({ selectedSchedule, onSave }) {
+export default function SchedulerMainPanel({ schedule, onUpdate }) {
+  const selectedSchedule = schedule;
+  const onSave = onUpdate;
   const [formData, setFormData] = useState({ name:'', task_id:'', triggerType:'cron', cronExpression:'0 0 * * *', status:'active' });
   const [availableTasks, setAvailableTasks] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,7 +121,27 @@ export default function SchedulerMainPanel({ selectedSchedule, onSave }) {
               </div>
             </div>
             {formData.triggerType==='cron' && (
-              <div><label style={lbl}>Cron Expression</label><input type="text" name="cronExpression" value={formData.cronExpression} onChange={handleChange} placeholder="* * * * *" style={{ ...inp, fontFamily: 'monospace' }} /><p className="text-xs mt-1" style={{ color: TM }}>Min Hour Day Month Weekday</p></div>
+              <div>
+                <label style={lbl}>Cron Expression</label>
+                <input type="text" name="cronExpression" value={formData.cronExpression} onChange={handleChange} placeholder="* * * * *" style={{ ...inp, fontFamily: 'monospace' }} />
+                <p className="text-xs mt-1 mb-2" style={{ color: TM }}>Min Hour Day Month Weekday</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Every minute',  value: '* * * * *' },
+                    { label: 'Every hour',    value: '0 * * * *' },
+                    { label: 'Every day 9am', value: '0 9 * * *' },
+                    { label: 'Every Monday',  value: '0 9 * * 1' },
+                    { label: 'Every month',   value: '0 9 1 * *' },
+                  ].map(p => (
+                    <button key={p.value} type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, cronExpression: p.value }))}
+                      className="text-xs px-2.5 py-1 rounded-lg hover:opacity-80"
+                      style={{ background: formData.cronExpression === p.value ? L : LL, color: formData.cronExpression === p.value ? '#fff' : L, border: `1px solid ${LB}` }}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {formData.triggerType==='event' && (
               <div><label style={lbl}>Webhook URL</label><input type="text" disabled value={`http://localhost:5000/api/schedules/${selectedSchedule.id}/trigger`} style={{ ...inp, fontFamily: 'monospace', fontSize: '12px', background: '#fafafa', color: TM }} /></div>
