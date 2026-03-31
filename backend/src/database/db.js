@@ -43,7 +43,6 @@ const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
     } else {
       initializeSchema();
     }
-    }
   }
 });
 
@@ -363,8 +362,6 @@ const dbAll = (sql, params = [], retries = 3) =>
       });
     };
     attempt(retries);
-  });
-    });
   });
 
 module.exports = { db, dbRun, dbGet, dbAll };
