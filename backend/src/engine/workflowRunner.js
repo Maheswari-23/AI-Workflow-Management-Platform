@@ -208,18 +208,14 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
       let previousOutput = '';
       for (let i = 0; i < agents.length; i++) {
         const agent = agents[i];
-        await emit(`[Step ${i + 1}/${agents.length}] Handing off to: ${agent.name}`);
-        await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['online', agent.id]);
-        const result = await runAgentWithEmit(agent, taskPrompt, previousOutput);
-        await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', agent.id]);
-        previousOutput = result.output;
-
-        if (i < agents.length - 1) {
-          const nextAgent = agents[i + 1];
-          await emit(`\n⏸ Approval gate before ${nextAgent.name}...`);
+        
+        // Check for approval gate BEFORE running agent (except first agent)
+        if (i > 0) {
+          const prevAgent = agents[i - 1];
+          await emit(`\n⏸ Approval gate before ${agent.name}...`);
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['awaiting_approval', runId]);
           broadcast('status', { runId, status: 'awaiting_approval', taskId: task.id });
-          const approvalId = await createApprovalGate(runId, task.id, task.name, i + 1, `Review output from ${agent.name} before passing to ${nextAgent.name}`, previousOutput);
+          const approvalId = await createApprovalGate(runId, task.id, task.name, i, `Review output from ${prevAgent.name} before passing to ${agent.name}`, previousOutput);
           await emit(`Waiting for approval (ID: ${approvalId})...`);
           const approval = await waitForApproval(approvalId);
           if (approval.status === 'rejected') {
@@ -230,12 +226,19 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
             broadcast('status', { runId, status: 'failed', taskId: task.id });
             return { id: runId, status: 'failed', duration_ms: duration };
           }
-          await emit(`✅ Approved! Continuing to ${nextAgent.name}...`);
+          await emit(`✅ Approved! Continuing to ${agent.name}...`);
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
           // Resume workflow status to 'running' after approval
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['running', runId]);
           broadcast('status', { runId, status: 'running', taskId: task.id });
         }
+        
+        // Now run the agent
+        await emit(`[Step ${i + 1}/${agents.length}] Handing off to: ${agent.name}`);
+        await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['online', agent.id]);
+        const result = await runAgentWithEmit(agent, taskPrompt, previousOutput);
+        await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', agent.id]);
+        previousOutput = result.output;
       }
     } else if (hasApprovalGates) {
       await emit(`Agent: ${agents[0].name} (with approval gates)`);
