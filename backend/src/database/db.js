@@ -183,6 +183,13 @@ function initializeSchema() {
       );
     }
 
+    // Clean up any duplicate tools — keep only the lowest id per name
+    db.run(`
+      DELETE FROM tools WHERE id NOT IN (
+        SELECT MIN(id) FROM tools GROUP BY name
+      )
+    `);
+
     // Agent Long-Term Memory table
     db.run(`
       CREATE TABLE IF NOT EXISTS agent_memory (

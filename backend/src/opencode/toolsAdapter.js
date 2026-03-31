@@ -48,9 +48,14 @@ const TOOL_SCHEMAS = {
 
 async function getDynamicTools() {
   const toolsList = [];
+  const seen = new Set(); // deduplicate by name in case DB has duplicates
   try {
     const dbTools = await dbAll('SELECT * FROM tools WHERE status = ?', ['active']);
     for (const tool of dbTools) {
+      const toolName = tool.name.replace(/\s+/g, '_').toLowerCase();
+      if (seen.has(toolName)) continue; // skip duplicates
+      seen.add(toolName);
+
       const schema = TOOL_SCHEMAS[tool.name];
       const parameters = schema
         ? { type: 'object', properties: schema.props, required: schema.req }
@@ -59,7 +64,7 @@ async function getDynamicTools() {
       toolsList.push({
         type: 'function',
         function: {
-          name: tool.name.replace(/\s+/g, '_').toLowerCase(),
+          name: toolName,
           description: schema?.desc || tool.description || `Tool: ${tool.name}`,
           parameters,
         },
