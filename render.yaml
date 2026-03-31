@@ -1,0 +1,58 @@
+# Render Blueprint for Orchestr
+# This file configures both backend and frontend services
+
+services:
+  # Backend API Service
+  - type: web
+    name: orchestr-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: SQLITE_DB_PATH
+        value: /opt/render/project/src/data/workflow.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+    disk:
+      name: orchestr-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+
+  # Frontend Service
+  - type: web
+    name: orchestr-frontend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: orchestr-backend
+          property: host
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: orchestr-backend
+          property: host

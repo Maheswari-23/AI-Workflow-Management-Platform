@@ -50,7 +50,12 @@ Deploy Orchestr to production in under 15 minutes!
 
 ### Quick Deploy Options
 
-**🌟 Vercel + Railway (Easiest)**
+**🌟 Render (Easiest - Recommended)**
+- Free tier: 750 hrs/month
+- 10 minutes setup
+- See [DEPLOY_RENDER.md](DEPLOY_RENDER.md)
+
+**🌟 Vercel + Railway**
 - Free tier available
 - 10 minutes setup
 - See [QUICKSTART_PRODUCTION.md](QUICKSTART_PRODUCTION.md)

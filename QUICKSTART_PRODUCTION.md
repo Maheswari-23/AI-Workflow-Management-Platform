@@ -6,7 +6,22 @@ Get Orchestr running in production in under 15 minutes!
 
 ## Choose Your Deployment Method
 
-### 🌟 Option 1: Vercel + Railway (Easiest - Recommended)
+### 🌟 Option 1: Render (Easiest - Recommended)
+
+**Time:** 10 minutes | **Cost:** Free tier (750 hrs/month) | **Difficulty:** ⭐
+
+**See detailed guide:** [DEPLOY_RENDER.md](DEPLOY_RENDER.md)
+
+Quick steps:
+1. Sign up at [render.com](https://render.com)
+2. Deploy backend web service from GitHub
+3. Deploy frontend web service from GitHub
+4. Add environment variables
+5. Done!
+
+---
+
+### 🌟 Option 2: Vercel + Railway
 
 **Time:** 10 minutes | **Cost:** Free tier available | **Difficulty:** ⭐
 
@@ -56,7 +71,7 @@ Get Orchestr running in production in under 15 minutes!
 
 ---
 
-### 🐳 Option 2: Docker (Any Cloud Provider)
+### 🐳 Option 3: Docker (Any Cloud Provider)
 
 **Time:** 15 minutes | **Cost:** ~$10-20/month | **Difficulty:** ⭐⭐
 
@@ -113,7 +128,7 @@ sudo systemctl restart nginx
 
 ---
 
-### 🖥️ Option 3: VPS with PM2
+### 🖥️ Option 4: VPS with PM2
 
 **Time:** 20 minutes | **Cost:** ~$5-10/month | **Difficulty:** ⭐⭐⭐
 
