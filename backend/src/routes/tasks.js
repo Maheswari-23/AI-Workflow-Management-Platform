@@ -122,11 +122,15 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST run a task — fires async, returns runId immediately
+// Automatically uses Docker if available, falls back to regular execution
 router.post('/:id/run', async (req, res) => {
   try {
     const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
+    // Check if Docker execution is enabled
+    const useDocker = process.env.USE_DOCKER_EXECUTION !== 'false'; // Default: true
+    
     // Create run record immediately so frontend has a runId to track
     const historyResult = await dbRun(
       'INSERT INTO run_history (task_id, task_name, trigger_type, status, output) VALUES (?, ?, ?, ?, ?)',
@@ -134,12 +138,62 @@ router.post('/:id/run', async (req, res) => {
     );
     const runId = historyResult.lastID;
 
-    // Fire workflow in background — don't await
+    if (useDocker) {
+      // Try Docker execution first
+      try {
+        const containerManager = require('../services/containerManager');
+        const dockerAvailable = await containerManager.checkDockerAvailable();
+        
+        if (dockerAvailable) {
+          console.log(`🐳 Running task ${task.id} in Docker container`);
+          
+          // Execute in Docker container (async)
+          containerManager.executeTask({
+            taskId: task.id,
+            description: task.description,
+            agentId: task.agents?.[0] || null,
+            llmProvider: 'groq',
+            maxSteps: 10,
+            timeout: 300000
+          }).then(result => {
+            // Update run history with result
+            dbRun(
+              'UPDATE run_history SET status = ?, output = ?, duration_ms = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?',
+              ['completed', JSON.stringify(result.result), result.result.duration, runId]
+            );
+          }).catch(err => {
+            console.error('Docker execution error:', err);
+            // Update with error
+            dbRun(
+              'UPDATE run_history SET status = ?, error = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?',
+              ['failed', err.message, runId]
+            );
+          });
+          
+          return res.json({ 
+            runId, 
+            status: 'running', 
+            message: 'Workflow started in Docker container',
+            executionMode: 'docker'
+          });
+        }
+      } catch (dockerErr) {
+        console.warn('Docker execution failed, falling back to regular execution:', dockerErr.message);
+      }
+    }
+
+    // Fallback to regular execution
+    console.log(`⚡ Running task ${task.id} in regular mode`);
     workflowRunner.runWithId(task, 'manual', null, runId).catch(err => {
       console.error('Background run error:', err.message);
     });
 
-    res.json({ runId, status: 'running', message: 'Workflow started' });
+    res.json({ 
+      runId, 
+      status: 'running', 
+      message: 'Workflow started',
+      executionMode: 'regular'
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

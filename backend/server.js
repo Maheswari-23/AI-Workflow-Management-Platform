@@ -89,4 +89,37 @@ app.listen(PORT, () => {
     const cronManager = require('./src/scheduler/cronManager');
     cronManager.initialize();
   }, 1000);
+
+  // Check and build Docker image if enabled
+  if (process.env.USE_DOCKER_EXECUTION !== 'false') {
+    setTimeout(async () => {
+      try {
+        const containerManager = require('./src/services/containerManager');
+        const dockerAvailable = await containerManager.checkDockerAvailable();
+        
+        if (dockerAvailable) {
+          console.log('🐳 Docker detected - checking task runner image...');
+          // Check if image exists, build if not
+          const { spawn } = require('child_process');
+          const checkImage = spawn('docker', ['images', '-q', 'orchestr-task-runner:latest']);
+          
+          checkImage.stdout.on('data', (data) => {
+            if (data.toString().trim()) {
+              console.log('✅ Task runner image ready');
+            } else {
+              console.log('📦 Building task runner image...');
+              containerManager.buildTaskRunnerImage().catch(err => {
+                console.warn('⚠️  Failed to build task runner image:', err.message);
+                console.log('   Tasks will run in regular mode');
+              });
+            }
+          });
+        } else {
+          console.log('ℹ️  Docker not available - tasks will run in regular mode');
+        }
+      } catch (err) {
+        console.log('ℹ️  Docker check skipped:', err.message);
+      }
+    }, 2000);
+  }
 });
