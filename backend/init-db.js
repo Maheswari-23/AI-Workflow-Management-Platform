@@ -13,39 +13,54 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const DB_PATH = process.env.SQLITE_DB_PATH || path.resolve(__dirname, '../data/workflow.db');
-const db = new sqlite3.Database(DB_PATH);
 
-console.log('🔧 Initializing database...');
+console.log('🔧 Initializing database at:', DB_PATH);
 
-// Check and seed tools
-db.get('SELECT COUNT(*) as count FROM tools', (err, row) => {
-  if (err) {
-    console.error('Error checking tools:', err);
-    return;
-  }
+let db;
+try {
+  db = new sqlite3.Database(DB_PATH, (err) => {
+    if (err) {
+      console.error('❌ Database connection error:', err);
+      return;
+    }
+    console.log('✓ Database connected');
+    initializeData();
+  });
+} catch (error) {
+  console.error('❌ Failed to open database:', error);
+}
 
-  if (row.count === 0) {
-    console.log('📦 Seeding initial tools...');
-    seedTools();
-  } else {
-    console.log(`✓ Database already has ${row.count} tools`);
-  }
-});
+function initializeData() {
+  // Check and seed tools
+  db.get('SELECT COUNT(*) as count FROM tools', (err, row) => {
+    if (err) {
+      console.error('Error checking tools:', err);
+      return;
+    }
 
-// Check and seed LLM providers
-db.get('SELECT COUNT(*) as count FROM llm_providers', (err, row) => {
-  if (err) {
-    console.error('Error checking LLM providers:', err);
-    return;
-  }
+    if (row && row.count === 0) {
+      console.log('📦 Seeding initial tools...');
+      seedTools();
+    } else {
+      console.log(`✓ Database already has ${row ? row.count : 0} tools`);
+    }
+  });
 
-  if (row.count === 0) {
-    console.log('📦 Seeding LLM providers...');
-    seedLLMProviders();
-  } else {
-    console.log(`✓ Database already has ${row.count} LLM providers`);
-  }
-});
+  // Check and seed LLM providers
+  db.get('SELECT COUNT(*) as count FROM llm_providers', (err, row) => {
+    if (err) {
+      console.error('Error checking LLM providers:', err);
+      return;
+    }
+
+    if (row && row.count === 0) {
+      console.log('📦 Seeding LLM providers...');
+      seedLLMProviders();
+    } else {
+      console.log(`✓ Database already has ${row ? row.count : 0} LLM providers`);
+    }
+  });
+}
 
 function seedLLMProviders() {
   const providers = [
