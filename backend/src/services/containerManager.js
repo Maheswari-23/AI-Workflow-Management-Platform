@@ -47,12 +47,14 @@ class ContainerManager extends EventEmitter {
         '--memory', process.env.TASK_MEMORY_LIMIT || '512m',
         '--cpus', process.env.TASK_CPU_LIMIT || '1',
         
-        // Environment variables
-        '-e', `TASK_ID=${taskConfig.taskId}`,
-        '-e', `TASK_DESCRIPTION=${taskConfig.description}`,
-        '-e', `AGENT_ID=${taskConfig.agentId}`,
-        '-e', `LLM_PROVIDER=${taskConfig.llmProvider}`,
-        '-e', `MAX_STEPS=${taskConfig.maxSteps || 10}`,
+        // Task data as environment variables (no database needed!)
+        '-e', `TASK_ID=${taskConfig.id}`,
+        '-e', `TASK_NAME=${taskConfig.name || 'Unnamed Task'}`,
+        '-e', `TASK_DESCRIPTION=${taskConfig.description || ''}`,
+        '-e', `TASK_AGENTS=${JSON.stringify(taskConfig.agents || [])}`,
+        '-e', `WORKFLOW_STEPS=${taskConfig.workflow_steps || ''}`,
+        '-e', `MAX_RETRIES=${taskConfig.max_retries || 2}`,
+        '-e', `RETRY_DELAY=${taskConfig.retry_delay_ms || 5000}`,
         '-e', `TIMEOUT=${taskConfig.timeout || 300000}`,
         
         // Pass API keys

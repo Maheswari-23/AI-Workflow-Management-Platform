@@ -3,38 +3,35 @@
 /**
  * Task Runner - Executes workflows in Docker containers
  * This script runs inside a Docker container to execute a single task
+ * Task data is passed via environment variables (no database needed)
  */
 
-const { dbGet } = require('./src/database/db');
 const workflowRunner = require('./src/engine/workflowRunner');
 
 // Get task configuration from environment variables
-const taskConfig = {
-  taskId: process.env.TASK_ID,
+const taskData = {
+  id: process.env.TASK_ID,
+  name: process.env.TASK_NAME || 'Docker Task',
   description: process.env.TASK_DESCRIPTION,
-  agentId: process.env.AGENT_ID,
-  llmProvider: process.env.LLM_PROVIDER,
-  maxSteps: parseInt(process.env.MAX_STEPS || '10'),
-  timeout: parseInt(process.env.TIMEOUT || '300000'), // 5 minutes default
+  agents: process.env.TASK_AGENTS ? JSON.parse(process.env.TASK_AGENTS) : [],
+  workflow_steps: process.env.WORKFLOW_STEPS || '',
+  max_retries: parseInt(process.env.MAX_RETRIES || '2'),
+  retry_delay_ms: parseInt(process.env.RETRY_DELAY || '5000'),
 };
 
 console.log('🐳 Task Runner Container Started');
-console.log('Task ID:', taskConfig.taskId);
-console.log('Description:', taskConfig.description);
+console.log('Task ID:', taskData.id);
+console.log('Task Name:', taskData.name);
+console.log('Description:', taskData.description);
 
 async function runTask() {
   try {
     const startTime = Date.now();
     
-    // Get task from database
-    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [taskConfig.taskId]);
-    if (!task) {
-      throw new Error(`Task ${taskConfig.taskId} not found`);
-    }
-    
     // Execute workflow using the actual workflowRunner
+    // Pass task data directly (no database query needed)
     console.log('▶️  Starting workflow execution...');
-    const result = await workflowRunner.run(task, 'docker', null);
+    const result = await workflowRunner.run(taskData, 'docker', null);
     
     const duration = Date.now() - startTime;
     console.log(`✅ Workflow completed in ${duration}ms`);
@@ -43,7 +40,7 @@ async function runTask() {
     console.log('RESULT_START');
     console.log(JSON.stringify({
       success: true,
-      taskId: taskConfig.taskId,
+      taskId: taskData.id,
       result: result,
       duration: duration,
       timestamp: new Date().toISOString()
@@ -58,7 +55,7 @@ async function runTask() {
     console.log('RESULT_START');
     console.log(JSON.stringify({
       success: false,
-      taskId: taskConfig.taskId,
+      taskId: taskData.id,
       error: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString()
@@ -70,10 +67,11 @@ async function runTask() {
 }
 
 // Handle timeout
+const timeout = parseInt(process.env.TIMEOUT || '300000');
 setTimeout(() => {
   console.error('⏱️  Task timeout exceeded');
   process.exit(124); // Timeout exit code
-}, taskConfig.timeout);
+}, timeout);
 
 // Handle signals
 process.on('SIGTERM', () => {

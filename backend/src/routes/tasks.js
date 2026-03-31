@@ -147,13 +147,18 @@ router.post('/:id/run', async (req, res) => {
         if (dockerAvailable) {
           console.log(`🐳 Running task ${task.id} in Docker container`);
           
+          // Parse agents if it's a string
+          const agents = typeof task.agents === 'string' ? JSON.parse(task.agents || '[]') : (task.agents || []);
+          
           // Execute in Docker container (async)
           containerManager.executeTask({
-            taskId: task.id,
+            id: task.id,
+            name: task.name,
             description: task.description,
-            agentId: task.agents?.[0] || null,
-            llmProvider: 'groq',
-            maxSteps: 10,
+            agents: agents,
+            workflow_steps: task.workflow_steps || '',
+            max_retries: task.max_retries || 2,
+            retry_delay_ms: task.retry_delay_ms || 5000,
             timeout: 300000
           }).then(result => {
             // Update run history with result
