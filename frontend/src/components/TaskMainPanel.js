@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardContent from './DashboardContent';
 import { toast } from './Toast';
 
@@ -51,6 +51,39 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       setApprovalFeedback('');
     }
   }, [selectedTask]);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e) => {
+    // Ctrl+S or Cmd+S to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (!isSaving && selectedTask) {
+        handleSave();
+        toast.success('Keyboard shortcut: Ctrl+S');
+      }
+    }
+    // Ctrl+Enter or Cmd+Enter to run
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!isRunning && formData.workflow_steps && selectedTask) {
+        handleRun();
+        toast.success('Keyboard shortcut: Ctrl+Enter');
+      }
+    }
+    // Esc to close modals
+    if (e.key === 'Escape') {
+      if (showVersions) setShowVersions(false);
+      if (pendingApproval) {
+        setPendingApproval(null);
+        setApprovalFeedback('');
+      }
+    }
+  }, [isSaving, isRunning, formData.workflow_steps, selectedTask, showVersions, pendingApproval]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const handleChange = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
   const toggleAgent = (id) => setFormData(p => ({
@@ -435,14 +468,23 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
         <div className="flex flex-wrap gap-4 pb-6">
           <button type="button" onClick={handleSave} disabled={isSaving}
             className="flex-1 md:flex-none px-6 py-3 text-white font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
-            style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
+            style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}
+            title="Keyboard shortcut: Ctrl+S">
             {isSaving ? 'Saving...' : 'Save Task'}
           </button>
           <button type="button" onClick={handleRun} disabled={isRunning || !formData.workflow_steps}
             className="flex-1 md:flex-none px-6 py-3 font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
-            style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>
+            style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}
+            title="Keyboard shortcut: Ctrl+Enter">
             {isRunning ? 'Running...' : '▶ Run Workflow'}
           </button>
+        </div>
+        
+        {/* Keyboard shortcuts hint */}
+        <div className="text-xs text-center pb-4" style={{ color: TM }}>
+          💡 Tip: Press <kbd className="px-2 py-1 rounded" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Ctrl+S</kbd> to save, 
+          <kbd className="px-2 py-1 rounded ml-1" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Ctrl+Enter</kbd> to run, 
+          <kbd className="px-2 py-1 rounded ml-1" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Esc</kbd> to close modals
         </div>
       </div>
     </div>
