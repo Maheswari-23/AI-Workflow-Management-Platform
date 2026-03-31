@@ -17,9 +17,12 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [runOutput, setRunOutput] = useState('');
-  const [runStatus, setRunStatus] = useState(null); // null | 'running' | 'completed' | 'failed' | 'retrying'
+  const [runStatus, setRunStatus] = useState(null); // null | 'running' | 'completed' | 'failed' | 'retrying' | 'awaiting_approval'
   const [runStage, setRunStage] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  const [pendingApproval, setPendingApproval] = useState(null);
+  const [approvalFeedback, setApprovalFeedback] = useState('');
+  const [isDeciding, setIsDeciding] = useState(false);
   const elapsedRef = useRef(null);
   const outputRef = useRef(null);
 
@@ -44,6 +47,8 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       setRunStatus(null);
       setRunStage('');
       setElapsed(0);
+      setPendingApproval(null);
+      setApprovalFeedback('');
     }
   }, [selectedTask]);
 
@@ -116,6 +121,31 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
     }
   };
 
+  const handleApprovalDecision = async (decision) => {
+    if (!pendingApproval) return;
+    setIsDeciding(true);
+    try {
+      await fetch(`/api/approvals/${pendingApproval.id}/decide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, feedback: approvalFeedback }),
+      });
+      toast.success(`Workflow ${decision}!`);
+      setPendingApproval(null);
+      setApprovalFeedback('');
+      if (decision === 'rejected') {
+        setRunStatus('failed');
+        setRunStage('Rejected by user');
+        clearInterval(elapsedRef.current);
+        setIsRunning(false);
+      }
+    } catch (err) {
+      toast.error('Failed to submit decision: ' + err.message);
+    } finally {
+      setIsDeciding(false);
+    }
+  };
+
   const handleRun = async () => {
     setIsRunning(true);
     setRunOutput('');
@@ -166,15 +196,29 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
             else if (d.output.includes('Final Report') || d.output.includes('Output:')) setRunStage('Generating output...');
           }
 
-          if (d.status === 'completed') {
+          // Check for awaiting_approval status
+          if (d.status === 'awaiting_approval') {
+            setRunStatus('awaiting_approval');
+            setRunStage('⏸ Waiting for your approval');
+            // Fetch pending approval for this run
+            const approvalRes = await fetch('/api/approvals/pending');
+            const approvalData = await approvalRes.json();
+            const approval = approvalData.approvals?.find(a => a.run_id === runId && a.status === 'pending');
+            if (approval && !pendingApproval) {
+              setPendingApproval(approval);
+              toast.success('Approval required! Review the output below.', 10000);
+            }
+          } else if (d.status === 'completed') {
             clearInterval(poll);
             setRunOutput(d.output || 'Completed.');
             finish('completed', 'Completed');
             onTaskUpdate({ ...selectedTask, status: 'completed' });
+            setPendingApproval(null);
           } else if (d.status === 'failed') {
             clearInterval(poll);
             setRunOutput(d.output || d.error || 'Run failed.');
             finish('failed', 'Failed');
+            setPendingApproval(null);
           }
         } catch(e) {}
       }, 1500);
@@ -269,11 +313,15 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
           <div style={{ ...card, padding: 0, overflow: 'hidden', border: `1.5px solid ${
             runStatus === 'completed' ? '#86efac' :
             runStatus === 'failed' ? '#fecaca' :
+            runStatus === 'awaiting_approval' ? '#fcd34d' :
             runStatus === 'retrying' ? '#fcd34d' : LB
           }` }}>
             {/* Status header */}
             <div className="px-5 py-3 flex items-center justify-between" style={{
-              background: runStatus === 'completed' ? '#f0fdf4' : runStatus === 'failed' ? '#fef2f2' : runStatus === 'retrying' ? '#fffbeb' : LL
+              background: runStatus === 'completed' ? '#f0fdf4' : 
+                         runStatus === 'failed' ? '#fef2f2' : 
+                         runStatus === 'awaiting_approval' ? '#fffbeb' :
+                         runStatus === 'retrying' ? '#fffbeb' : LL
             }}>
               <div className="flex items-center gap-3">
                 {/* Animated icon */}
@@ -282,6 +330,8 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
+                ) : runStatus === 'awaiting_approval' ? (
+                  <span className="text-yellow-600 text-base animate-pulse">⏸</span>
                 ) : runStatus === 'completed' ? (
                   <span className="text-green-600 text-base">✓</span>
                 ) : (
@@ -289,7 +339,10 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                 )}
                 <div>
                   <p className="text-xs font-bold" style={{
-                    color: runStatus === 'completed' ? '#065f46' : runStatus === 'failed' ? '#991b1b' : runStatus === 'retrying' ? '#92400e' : L
+                    color: runStatus === 'completed' ? '#065f46' : 
+                           runStatus === 'failed' ? '#991b1b' : 
+                           runStatus === 'awaiting_approval' ? '#92400e' :
+                           runStatus === 'retrying' ? '#92400e' : L
                   }}>{runStage}</p>
                   <p className="text-xs" style={{ color: TM }}>Elapsed: {elapsed}s</p>
                 </div>
@@ -310,7 +363,50 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
               {runStatus === 'failed' && (
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#fee2e2', color: '#991b1b' }}>Failed</span>
               )}
+              {runStatus === 'awaiting_approval' && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full animate-pulse" style={{ background: '#fef3c7', color: '#92400e' }}>Approval Required</span>
+              )}
             </div>
+
+            {/* Approval Modal Inline */}
+            {pendingApproval && runStatus === 'awaiting_approval' && (
+              <div className="px-5 py-4" style={{ background: '#fffbeb', borderTop: '1.5px solid #fcd34d', borderBottom: '1.5px solid #fcd34d' }}>
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold mb-2" style={{ color: '#92400e' }}>
+                      🔔 Approval Required: {pendingApproval.step_description}
+                    </p>
+                    <p className="text-xs mb-3" style={{ color: '#78350f' }}>
+                      Review the agent output below and decide whether to continue or reject this workflow.
+                    </p>
+                    <textarea 
+                      value={approvalFeedback} 
+                      onChange={e => setApprovalFeedback(e.target.value)}
+                      placeholder="Optional: Add feedback or instructions for the next step..."
+                      rows={2} 
+                      className="w-full px-3 py-2 rounded-lg text-sm mb-3"
+                      style={{ border: '1.5px solid #fcd34d', background: '#fff', color: TH, resize: 'none' }} 
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleApprovalDecision('approved')} 
+                        disabled={isDeciding}
+                        className="px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
+                        style={{ background: '#10b981' }}>
+                        {isDeciding ? 'Processing...' : '✓ Approve & Continue'}
+                      </button>
+                      <button 
+                        onClick={() => handleApprovalDecision('rejected')} 
+                        disabled={isDeciding}
+                        className="px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
+                        style={{ background: '#ef4444' }}>
+                        {isDeciding ? 'Processing...' : '✕ Reject & Stop'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Live log output */}
             <div ref={outputRef} className="overflow-y-auto p-4" style={{ maxHeight: '320px', background: '#0f0f0f' }}>
