@@ -1,124 +1,313 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import PageHeader from '../../components/PageHeader';
+import { toast } from '../../components/Toast';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
 const AGENT_TEMPLATES = [
   {
+    id: 'web-researcher',
+    name: 'Web Researcher',
     category: 'Research',
-    items: [
-      { name: 'Web Researcher', description: 'Searches the web, fetches pages, and summarizes findings on any topic.', system_prompt: 'You are an expert web researcher. When given a topic, use web_search and fetch_webpage tools to gather information, then provide a comprehensive, well-structured summary with sources.', tools: ['web_search', 'fetch_webpage', 'summarize_text'], icon: '🔍' },
-      { name: 'News Analyst', description: 'Fetches latest news on a topic and provides analysis and key takeaways.', system_prompt: 'You are a news analyst. Use get_news to fetch headlines, then analyze trends, sentiment, and key developments. Always cite sources and provide balanced analysis.', tools: ['get_news', 'web_search', 'summarize_text'], icon: '📰' },
-      { name: 'Market Intelligence', description: 'Tracks stock prices, crypto, exchange rates and provides market insights.', system_prompt: 'You are a market intelligence analyst. Use financial tools to gather data on stocks, crypto, and currencies. Provide clear analysis with numbers and trends.', tools: ['fetch_stock_price', 'get_crypto_price', 'get_exchange_rate'], icon: '📈' },
-    ]
+    description: 'Expert at searching the web, fetching pages, and compiling research reports with citations.',
+    icon: 'search',
+    system_prompt: `You are a Web Research Specialist. Your role is to:
+1. Search the web for accurate, up-to-date information
+2. Fetch and analyze relevant web pages
+3. Extract key facts, statistics, and insights
+4. Compile comprehensive research reports with proper citations
+5. Verify information from multiple sources
+6. Provide source URLs for all claims
+
+Always prioritize credible sources and fact-check information.`,
+    skills: ['web_search', 'fetch_webpage', 'summarize_text', 'extract_keywords'],
+    color: { bg: '#dbeafe', color: '#1e40af' },
   },
   {
-    category: 'Data Processing',
-    items: [
-      { name: 'Data Transformer', description: 'Parses, transforms, and formats data between different structures.', system_prompt: 'You are a data transformation specialist. Use parse_json, string_replace, and other utility tools to clean, transform, and reformat data as requested. Always validate output.', tools: ['parse_json', 'string_replace', 'base64_encode', 'count_words'], icon: '⚙️' },
-      { name: 'File Processor', description: 'Reads files, processes content, and writes results back to disk.', system_prompt: 'You are a file processing agent. Read files, analyze or transform their content, and write results. Always confirm file paths before writing and handle errors gracefully.', tools: ['read_file', 'write_file', 'list_directory', 'count_words'], icon: '📁' },
-      { name: 'Text Analyst', description: 'Analyzes text for keywords, sentiment, word count, and summaries.', system_prompt: 'You are a text analysis expert. Extract keywords, count words, summarize content, and translate text as needed. Provide structured analysis with clear metrics.', tools: ['summarize_text', 'extract_keywords', 'count_words', 'translate_text'], icon: '📝' },
-    ]
+    id: 'data-analyst',
+    name: 'Data Analyst',
+    category: 'Finance',
+    description: 'Analyzes stock prices, crypto markets, and financial data to provide investment insights.',
+    icon: 'chart',
+    system_prompt: `You are a Financial Data Analyst. Your expertise includes:
+1. Analyzing stock market data and trends
+2. Tracking cryptocurrency prices and movements
+3. Calculating financial metrics and ratios
+4. Identifying market patterns and opportunities
+5. Providing data-driven investment insights
+6. Creating clear, actionable reports
+
+Always include risk disclaimers and base recommendations on data.`,
+    skills: ['fetch_stock_price', 'get_crypto_price', 'get_exchange_rate', 'calculator', 'get_news'],
+    color: { bg: '#d1fae5', color: '#065f46' },
   },
   {
+    id: 'content-writer',
+    name: 'Content Writer',
+    category: 'Content',
+    description: 'Creates high-quality written content, blog posts, and articles with SEO optimization.',
+    icon: 'edit',
+    system_prompt: `You are a Professional Content Writer. Your skills include:
+1. Writing engaging, well-structured content
+2. Optimizing content for SEO with keywords
+3. Adapting tone and style for different audiences
+4. Creating compelling headlines and introductions
+5. Ensuring grammar, clarity, and readability
+6. Incorporating research and citations
+
+Focus on quality, originality, and reader engagement.`,
+    skills: ['web_search', 'summarize_text', 'extract_keywords', 'count_words', 'translate_text'],
+    color: { bg: '#fce7f3', color: '#9f1239' },
+  },
+  {
+    id: 'file-manager',
+    name: 'File Manager',
     category: 'Automation',
-    items: [
-      { name: 'API Integrator', description: 'Makes HTTP requests to external APIs and processes responses.', system_prompt: 'You are an API integration specialist. Use http_request to call external APIs, parse responses with parse_json, and format results clearly. Handle errors and rate limits gracefully.', tools: ['http_request', 'parse_json', 'log'], icon: '🔗' },
-      { name: 'Scheduler Assistant', description: 'Helps plan and organize tasks with time and date awareness.', system_prompt: 'You are a scheduling assistant. Use time and date tools to help plan tasks, calculate deadlines, and organize workflows. Always confirm timezone and format dates clearly.', tools: ['get_current_time', 'format_date', 'get_public_holidays', 'log'], icon: '🗓️' },
-      { name: 'System Monitor', description: 'Runs shell commands to monitor system health and gather diagnostics.', system_prompt: 'You are a system monitoring agent. Use run_shell_command to check system status, disk usage, running processes, and other diagnostics. Report findings clearly and flag any issues.', tools: ['run_shell_command', 'list_directory', 'log'], icon: '🖥️' },
-    ]
+    description: 'Organizes files, analyzes directory structures, and manages file operations efficiently.',
+    icon: 'folder',
+    system_prompt: `You are a File Management Specialist. Your responsibilities:
+1. Organizing and categorizing files systematically
+2. Analyzing directory structures and contents
+3. Reading, writing, and managing files safely
+4. Creating detailed file inventories and reports
+5. Identifying duplicate or unnecessary files
+6. Maintaining clean, organized file systems
+
+Always confirm before deleting or moving files.`,
+    skills: ['list_directory', 'read_file', 'write_file', 'parse_json', 'log'],
+    color: { bg: '#fef3c7', color: '#92400e' },
   },
   {
-    category: 'AI Assistant',
-    items: [
-      { name: 'General Assistant', description: 'A versatile AI assistant that can handle a wide range of tasks.', system_prompt: 'You are a helpful, knowledgeable AI assistant. You have access to web search, data tools, and utility functions. Always be clear, concise, and accurate. Ask for clarification when needed.', tools: ['web_search', 'fetch_webpage', 'calculator', 'get_current_time', 'ask_llm'], icon: '🤖' },
-      { name: 'Code Helper', description: 'Assists with code analysis, shell commands, and file operations.', system_prompt: 'You are a coding assistant. Help analyze code, run shell commands, read/write files, and solve technical problems. Always explain what you are doing and why.', tools: ['run_shell_command', 'read_file', 'write_file', 'list_directory', 'web_search'], icon: '💻' },
-      { name: 'Translator & Summarizer', description: 'Translates content to any language and creates concise summaries.', system_prompt: 'You are a multilingual content specialist. Translate text accurately while preserving tone and meaning. Create concise, well-structured summaries that capture key points.', tools: ['translate_text', 'summarize_text', 'extract_keywords', 'count_words'], icon: '🌐' },
-    ]
+    id: 'news-analyst',
+    name: 'News Analyst',
+    category: 'Research',
+    description: 'Fetches latest news, analyzes trends, and creates daily news digests on any topic.',
+    icon: 'newspaper',
+    system_prompt: `You are a News Analysis Expert. Your role involves:
+1. Fetching latest news from reliable sources
+2. Analyzing news trends and patterns
+3. Identifying key stories and developments
+4. Creating concise, informative news summaries
+5. Providing context and background information
+6. Tracking ongoing stories and updates
+
+Maintain objectivity and cite all sources.`,
+    skills: ['get_news', 'web_search', 'fetch_webpage', 'summarize_text', 'get_current_time'],
+    color: { bg: '#dbeafe', color: '#1e40af' },
+  },
+  {
+    id: 'ai-assistant',
+    name: 'AI Assistant',
+    category: 'AI',
+    description: 'General-purpose AI assistant with text processing, translation, and summarization capabilities.',
+    icon: 'sparkles',
+    system_prompt: `You are a Versatile AI Assistant. Your capabilities include:
+1. Answering questions accurately and helpfully
+2. Summarizing long texts concisely
+3. Translating between languages
+4. Extracting key information from documents
+5. Providing explanations and insights
+6. Assisting with various text processing tasks
+
+Be helpful, accurate, and user-friendly in all interactions.`,
+    skills: ['ask_llm', 'summarize_text', 'translate_text', 'extract_keywords', 'count_words'],
+    color: { bg: '#e9d5ff', color: '#7c3aed' },
   },
 ];
 
+const iconMap = {
+  'search': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />,
+  'chart': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />,
+  'edit': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />,
+  'folder': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />,
+  'newspaper': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />,
+  'sparkles': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />,
+};
+
 export default function MarketplacePage() {
-  const [installing, setInstalling] = useState(null);
-  const [installed, setInstalled] = useState({});
-  const [filter, setFilter] = useState('All');
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const router = useRouter();
 
-  const categories = ['All', ...AGENT_TEMPLATES.map(g => g.category)];
+  const categories = [
+    { id: 'all', name: 'All Agents', count: AGENT_TEMPLATES.length },
+    { id: 'Research', name: 'Research', count: AGENT_TEMPLATES.filter(a => a.category === 'Research').length },
+    { id: 'Finance', name: 'Finance', count: AGENT_TEMPLATES.filter(a => a.category === 'Finance').length },
+    { id: 'Content', name: 'Content', count: AGENT_TEMPLATES.filter(a => a.category === 'Content').length },
+    { id: 'Automation', name: 'Automation', count: AGENT_TEMPLATES.filter(a => a.category === 'Automation').length },
+    { id: 'AI', name: 'AI', count: AGENT_TEMPLATES.filter(a => a.category === 'AI').length },
+  ];
 
-  const install = async (template) => {
-    setInstalling(template.name);
+  const filteredAgents = selectedCategory === 'all' 
+    ? AGENT_TEMPLATES 
+    : AGENT_TEMPLATES.filter(a => a.category === selectedCategory);
+
+  const handleInstall = async (template) => {
+    setIsInstalling(true);
     try {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: template.name, system_prompt: template.system_prompt }),
+        body: JSON.stringify({
+          name: template.name,
+          system_prompt: template.system_prompt,
+          skills: template.skills.join(','),
+          status: 'online',
+        }),
       });
       const data = await res.json();
       if (data.agent) {
-        setInstalled(prev => ({ ...prev, [template.name]: true }));
+        toast.success(`${template.name} installed successfully!`);
+        setSelectedAgent(null);
+        router.push('/agents');
+      } else {
+        toast.error(data.error || 'Failed to install agent');
       }
-    } catch(e) { console.error(e); }
-    finally { setInstalling(null); }
+    } catch (err) {
+      toast.error('Installation failed: ' + err.message);
+    } finally {
+      setIsInstalling(false);
+    }
   };
-
-  const filtered = filter === 'All'
-    ? AGENT_TEMPLATES
-    : AGENT_TEMPLATES.filter(g => g.category === filter);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
-      <div className="px-6 py-4" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
-        <h1 className="text-2xl font-bold" style={{ color: TH }}>Agent Marketplace</h1>
-        <p className="text-sm mt-0.5" style={{ color: TM }}>Pre-built agent templates. Click Install to add to your workspace instantly.</p>
-        <div className="flex gap-2 mt-3 flex-wrap">
-          {categories.map(c => (
-            <button key={c} onClick={() => setFilter(c)}
-              className="px-3 py-1 text-xs font-semibold rounded-lg"
-              style={filter === c ? { background: L, color: '#fff' } : { background: LL, color: L }}>
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader 
+        title="Agent Marketplace" 
+        description="Pre-configured AI agents ready to use. One-click installation."
+        buttonText="↻ Refresh"
+        buttonAction={() => window.location.reload()}
+      />
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
-        <div className="max-w-5xl mx-auto space-y-8">
-          {filtered.map(group => (
-            <div key={group.category}>
-              <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: TM }}>{group.category}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.items.map(template => (
-                  <div key={template.name} className="rounded-2xl p-5 flex flex-col"
-                    style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                    <div className="flex items-start gap-3 mb-3">
-                      <span className="text-2xl">{template.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold" style={{ color: TH }}>{template.name}</h3>
-                        <p className="text-xs mt-0.5" style={{ color: TM }}>{template.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {template.tools.slice(0, 4).map(t => (
-                        <span key={t} className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: LL, color: L }}>{t}</span>
-                      ))}
-                      {template.tools.length > 4 && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: '#f3f4f6', color: TM }}>+{template.tools.length - 4} more</span>
-                      )}
-                    </div>
-                    <button onClick={() => install(template)}
-                      disabled={installing === template.name || installed[template.name]}
-                      className="mt-auto w-full py-2 text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-60"
-                      style={installed[template.name]
-                        ? { background: '#d1fae5', color: '#065f46' }
-                        : { background: L, color: '#fff', boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
-                      {installed[template.name] ? '✓ Installed' : installing === template.name ? 'Installing...' : 'Install Agent'}
-                    </button>
+        <div className="max-w-7xl mx-auto">
+
+          {/* Category Filter */}
+          <div className="mb-6 flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
+                style={selectedCategory === cat.id 
+                  ? { background: L, color: '#fff', boxShadow: '0 2px 8px rgba(181,123,238,0.3)' }
+                  : { background: '#fff', color: TM, border: `1.5px solid ${LB}` }}>
+                {cat.name} ({cat.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Agent Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAgents.map(agent => (
+              <div key={agent.id}
+                className="rounded-2xl p-6 cursor-pointer transition-all hover:shadow-lg"
+                style={{ background: '#fff', border: `1.5px solid ${LB}` }}
+                onClick={() => setSelectedAgent(agent)}>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" 
+                    style={{ background: agent.color.bg }}>
+                    <svg className="w-6 h-6" style={{ color: agent.color.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {iconMap[agent.icon]}
+                    </svg>
                   </div>
-                ))}
+                  <span className="text-xs px-2 py-1 rounded-full font-medium"
+                    style={{ background: agent.color.bg, color: agent.color.color }}>
+                    {agent.category}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mb-2" style={{ color: TH }}>{agent.name}</h3>
+                <p className="text-sm mb-4 line-clamp-2" style={{ color: TM }}>{agent.description}</p>
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {agent.skills.slice(0, 3).map(skill => (
+                    <span key={skill} className="text-xs px-2 py-0.5 rounded-full" style={{ background: LL, color: L }}>
+                      {skill}
+                    </span>
+                  ))}
+                  {agent.skills.length > 3 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: LL, color: L }}>
+                      +{agent.skills.length - 3}
+                    </span>
+                  )}
+                </div>
+                <button 
+                  className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl hover:opacity-85 transition-all"
+                  style={{ background: L, color: '#fff' }}
+                  onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent); }}>
+                  Install Agent →
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Agent Detail Modal */}
+          {selectedAgent && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+              onClick={() => setSelectedAgent(null)}>
+              <div className="rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+                style={{ background: '#fff' }}
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center" 
+                      style={{ background: selectedAgent.color.bg }}>
+                      <svg className="w-8 h-8" style={{ color: selectedAgent.color.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {iconMap[selectedAgent.icon]}
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold mb-1" style={{ color: TH }}>{selectedAgent.name}</h2>
+                      <span className="text-xs px-2 py-1 rounded-full font-medium"
+                        style={{ background: selectedAgent.color.bg, color: selectedAgent.color.color }}>
+                        {selectedAgent.category}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedAgent(null)} className="text-2xl hover:opacity-70" style={{ color: TM }}>✕</button>
+                </div>
+
+                <p className="text-sm mb-6" style={{ color: TM }}>{selectedAgent.description}</p>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold mb-3" style={{ color: TH }}>System Prompt:</h3>
+                  <pre className="text-xs p-4 rounded-xl whitespace-pre-wrap font-mono leading-relaxed"
+                    style={{ background: '#fafafa', color: TH, border: `1px solid ${LB}` }}>
+                    {selectedAgent.system_prompt}
+                  </pre>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold mb-3" style={{ color: TH }}>Included Tools ({selectedAgent.skills.length}):</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAgent.skills.map(skill => (
+                      <span key={skill} className="text-xs px-2 py-1 rounded-full" style={{ background: LL, color: L }}>
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => handleInstall(selectedAgent)}
+                    disabled={isInstalling}
+                    className="flex-1 px-6 py-3 text-white font-semibold rounded-xl hover:opacity-85 disabled:opacity-50 transition-all"
+                    style={{ background: L, boxShadow: '0 4px 12px rgba(181,123,238,0.3)' }}>
+                    {isInstalling ? 'Installing...' : 'Install Agent'}
+                  </button>
+                  <button 
+                    onClick={() => setSelectedAgent(null)}
+                    className="px-6 py-3 font-semibold rounded-xl hover:opacity-85 transition-all"
+                    style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}>
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
