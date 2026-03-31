@@ -37,6 +37,9 @@ class ContainerManager extends EventEmitter {
     
     return new Promise((resolve, reject) => {
       // Build docker run command
+      const path = require('path');
+      const dbPath = path.resolve(__dirname, '../../../data');
+      
       const dockerArgs = [
         'run',
         '--rm', // Remove container after execution
@@ -46,6 +49,9 @@ class ContainerManager extends EventEmitter {
         // Resource limits
         '--memory', process.env.TASK_MEMORY_LIMIT || '512m',
         '--cpus', process.env.TASK_CPU_LIMIT || '1',
+        
+        // Mount database volume so container can access run_history table
+        '-v', `${dbPath}:/app/data`,
         
         // Task data as environment variables (no database needed!)
         '-e', `TASK_ID=${taskConfig.id}`,
