@@ -216,5 +216,24 @@ All 8 planned features have been successfully implemented!
 
 **Last Updated:** 2026-03-31
 **Git Branch:** main
-**Latest Commit:** d350ee1
+**Latest Commit:** 194b810
 **Status:** 🎉 ALL FEATURES COMPLETE!
+
+---
+
+## 🐛 Bug Fixes
+
+### Docker Database Access Fix (Commit: 194b810)
+**Issue:** Tasks running in Docker containers failed with `SQLITE_ERROR: no such table: run_history`
+
+**Root Cause:** Docker containers didn't have access to the database file
+
+**Solution:** 
+- Added volume mount for `/app/data` directory in containerManager
+- Container now shares the same database file as the main backend process
+- Rebuilt Docker image with updated configuration
+
+**Files Modified:**
+- `backend/src/services/containerManager.js`
+
+**Impact:** Docker task execution now works correctly with full database access
