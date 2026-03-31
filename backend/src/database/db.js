@@ -16,14 +16,28 @@ const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
     console.error('Error opening database:', err.message);
   } else {
     console.log('Connected to SQLite database at', path.resolve(DB_PATH));
-    initializeSchema();
+    
+    // For Docker containers, disable foreign key constraints FIRST
+    // since task data comes from env vars, not the database
+    if (process.env.TASK_MODE === 'container') {
+      console.log('Running in container mode - disabling FK constraints');
+      db.run('PRAGMA foreign_keys = OFF', (pragmaErr) => {
+        if (pragmaErr) console.error('Failed to disable FK:', pragmaErr);
+        else console.log('Foreign keys disabled for container mode');
+        initializeSchema();
+      });
+    } else {
+      initializeSchema();
+    }
   }
 });
 
 function initializeSchema() {
   db.serialize(() => {
-    // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
+    // Enable foreign keys for normal mode
+    if (process.env.TASK_MODE !== 'container') {
+      db.run('PRAGMA foreign_keys = ON');
+    }
 
     // Agents table
     db.run(`

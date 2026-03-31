@@ -53,6 +53,9 @@ class ContainerManager extends EventEmitter {
         // Mount database volume so container can access run_history table
         '-v', `${dbPath}:/app/data`,
         
+        // Set database path for container
+        '-e', `DB_PATH=/app/data/workflow.db`,
+        
         // Task data as environment variables (no database needed!)
         '-e', `TASK_ID=${taskConfig.id}`,
         '-e', `TASK_NAME=${taskConfig.name || 'Unnamed Task'}`,
