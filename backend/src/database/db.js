@@ -1,14 +1,38 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const sqlite3 = require('sqlite3').verbose();
 const config = require('../config');
 
-const DB_PATH = config.DB_PATH;
+// Resolve DB path — prefer AppData on Windows to avoid WAL issues in Downloads/OneDrive
+let DB_PATH = config.DB_PATH;
+
+// On Windows, if the path is inside Downloads or a synced folder, move to AppData
+if (process.platform === 'win32') {
+  const appData = process.env.APPDATA || os.homedir();
+  const safeDir = path.join(appData, 'AIWorkflowPlatform', 'data');
+  // Use AppData path if no explicit DB_PATH env var was set OR if the path is in Downloads
+  if (!process.env.DB_PATH) {
+    DB_PATH = path.join(safeDir, 'workflow.db');
+  }
+}
+
 const dbDir = path.dirname(path.resolve(DB_PATH));
 
 // Ensure data directory exists
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
+}
+
+// Copy existing DB if moving to new location
+const legacyPath = path.resolve(path.join(__dirname, '../../data/workflow.db'));
+if (DB_PATH !== legacyPath && fs.existsSync(legacyPath) && !fs.existsSync(path.resolve(DB_PATH))) {
+  try {
+    fs.copyFileSync(legacyPath, path.resolve(DB_PATH));
+    console.log('Migrated database to safe location:', path.resolve(DB_PATH));
+  } catch (copyErr) {
+    console.warn('Could not migrate existing DB, starting fresh:', copyErr.message);
+  }
 }
 
 const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
@@ -20,16 +44,27 @@ const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
     // Configure database for better concurrent access
     db.configure('busyTimeout', 5000); // Wait up to 5 seconds for locks
     
-    // Enable WAL mode for better concurrent read/write performance
+    // Try WAL mode for better concurrency; fall back to DELETE (safer on Windows/network drives)
     db.run('PRAGMA journal_mode = WAL', (walErr) => {
-      if (walErr) console.error('Failed to enable WAL mode:', walErr);
-      else console.log('WAL mode enabled for better concurrency');
+      if (walErr) {
+        console.warn('WAL mode not available (common on Windows/OneDrive), using DELETE journal mode instead.');
+        db.run('PRAGMA journal_mode = DELETE', () => {
+          console.log('Journal mode: DELETE (safe fallback)');
+        });
+      } else {
+        console.log('WAL mode enabled for better concurrency');
+      }
     });
     
     // Set busy timeout
-    db.run('PRAGMA busy_timeout = 5000', (timeoutErr) => {
-      if (timeoutErr) console.error('Failed to set busy timeout:', timeoutErr);
+    db.run('PRAGMA busy_timeout = 10000', (timeoutErr) => {
+      if (timeoutErr) console.warn('Could not set busy timeout:', timeoutErr.message);
     });
+    
+    // Optimize SQLite for reliability
+    db.run('PRAGMA synchronous = NORMAL');
+    db.run('PRAGMA temp_store = MEMORY');
+    db.run('PRAGMA cache_size = -16000'); // 16MB cache
     
     // For Docker containers, disable foreign key constraints FIRST
     // since task data comes from env vars, not the database
