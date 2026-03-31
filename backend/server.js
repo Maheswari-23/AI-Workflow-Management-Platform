@@ -53,7 +53,6 @@ app.use('/api/schedules', require('./src/routes/schedules'));
 app.use('/api/history', require('./src/routes/history'));
 app.use('/api/approvals', require('./src/routes/approvals'));
 app.use('/api/memory', require('./src/routes/memory'));
-app.use('/api/canvas', require('./src/routes/canvas'));
 
 // SSE real-time stream
 const { broadcast } = require('./src/engine/workflowRunner');

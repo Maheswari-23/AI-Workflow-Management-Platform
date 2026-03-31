@@ -8,11 +8,10 @@ const { encrypt, decrypt } = require('../utils/crypto');
 router.get('/providers', async (req, res) => {
   try {
     const providers = await dbAll('SELECT * FROM llm_providers ORDER BY name');
-    // Mask API keys in response
     const safe = providers.map(p => ({
       ...p,
-      api_key: p.api_key ? '••••••••' + p.api_key.slice(-4) : '',
-      hasKey: !!p.api_key,
+      api_key: p.api_key ? '••••••••••' : '',
+      hasKey: !!(p.api_key && p.api_key.length > 0),
     }));
     res.json({ providers: safe });
   } catch (err) {
@@ -89,18 +88,17 @@ router.post('/providers/:name/set-default', async (req, res) => {
 // POST test LLM connection
 router.post('/test', async (req, res) => {
   try {
-    const { provider_name, api_key } = req.body;
-    
-    // Determine provider to use
+    const { provider_name } = req.body;
     let provider;
     if (provider_name) {
       provider = await dbGet('SELECT * FROM llm_providers WHERE name = ?', [provider_name]);
     }
-    const key = api_key || provider?.api_key || process.env.GROQ_API_KEY;
+    // Decrypt the stored key
+    const key = provider?.api_key ? decrypt(provider.api_key) : process.env.GROQ_API_KEY;
     const baseUrl = provider?.base_url || 'https://api.groq.com/openai/v1';
     const model = provider?.model || 'llama-3.3-70b-versatile';
 
-    if (!key) return res.status(400).json({ error: 'No API key available' });
+    if (!key) return res.status(400).json({ error: 'No API key configured for this provider' });
 
     const response = await axios.post(
       `${baseUrl}/chat/completions`,

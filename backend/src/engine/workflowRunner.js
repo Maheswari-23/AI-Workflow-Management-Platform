@@ -79,14 +79,14 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '') 
     const finalContent = finalPass?.choices?.[0]?.message?.content || 'No output.';
     agentLog += `\nOutput:\n${finalContent}\n`;
 
-    // Auto-save key facts to agent memory
-    await setAgentMemory(agent.id, `last_run_${Date.now()}`, finalContent.slice(0, 500));
+    // Save last run output to memory under a fixed key (overwrites previous)
+    await setAgentMemory(agent.id, 'last_run', finalContent.slice(0, 500));
 
     return { log: agentLog, output: finalContent };
   } else {
     const content = messageOut.content || 'No output.';
     agentLog += `\nOutput:\n${content}\n`;
-    await setAgentMemory(agent.id, `last_run_${Date.now()}`, content.slice(0, 500));
+    await setAgentMemory(agent.id, 'last_run', content.slice(0, 500));
     return { log: agentLog, output: content };
   }
 }
@@ -139,12 +139,24 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
   const maxRetries = task.max_retries ?? 2;
   const retryDelay = task.retry_delay_ms ?? 5000;
 
-  // Helper to emit SSE + update DB output
+  // Accumulate output in memory, flush to DB every few lines for performance
+  let outputBuffer = '';
+  let flushTimer = null;
+
+  async function flushOutput() {
+    if (outputBuffer) {
+      await dbRun('UPDATE run_history SET output = output || ? WHERE id = ?', [outputBuffer, runId]);
+      outputBuffer = '';
+    }
+  }
+
   async function emit(line) {
-    const current = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
-    const newOutput = (current?.output || '') + line + '\n';
-    await dbRun('UPDATE run_history SET output = ? WHERE id = ?', [newOutput, runId]);
+    outputBuffer += line + '\n';
     broadcast('log', { runId, line, taskId: task.id });
+    // Flush every 3 lines or immediately for important lines
+    if (outputBuffer.split('\n').length > 3 || line.includes('===') || line.includes('Agent:')) {
+      await flushOutput();
+    }
   }
 
   try {
@@ -259,6 +271,7 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
     await emit('\n=== Workflow Completed ===');
     const duration = Date.now() - startTime;
     await emit(`Duration: ${(duration / 1000).toFixed(2)}s`);
+    await flushOutput(); // ensure all output is written
 
     const finalRun = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
     await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
@@ -272,6 +285,7 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
     const duration = Date.now() - startTime;
     const errorMsg = err.response?.data?.error?.message || err.message;
     console.error('WorkflowRunner error:', errorMsg);
+    await flushOutput();
 
     // ── Retry logic ───────────────────────────────────────────────────────────
     if (attempt <= maxRetries) {

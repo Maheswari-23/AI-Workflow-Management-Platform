@@ -38,11 +38,11 @@ function initializeSchema() {
       )
     `);
 
-    // Tools table
+    // Tools table — UNIQUE on name to prevent duplicate seeding
     db.run(`
       CREATE TABLE IF NOT EXISTS tools (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL UNIQUE,
         type TEXT DEFAULT 'api',
         description TEXT DEFAULT '',
         endpoint TEXT DEFAULT '',
@@ -53,6 +53,8 @@ function initializeSchema() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migrate: add UNIQUE constraint for existing DBs by deduplicating first then recreating
+    db.run(`DELETE FROM tools WHERE id NOT IN (SELECT MIN(id) FROM tools GROUP BY name)`, () => {});
 
     // Tasks table
     db.run(`
@@ -182,13 +184,6 @@ function initializeSchema() {
         [name, type, description, endpoint, method]
       );
     }
-
-    // Clean up any duplicate tools — keep only the lowest id per name
-    db.run(`
-      DELETE FROM tools WHERE id NOT IN (
-        SELECT MIN(id) FROM tools GROUP BY name
-      )
-    `);
 
     // Agent Long-Term Memory table
     db.run(`
