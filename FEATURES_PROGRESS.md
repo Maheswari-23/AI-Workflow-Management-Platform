@@ -216,24 +216,30 @@ All 8 planned features have been successfully implemented!
 
 **Last Updated:** 2026-03-31
 **Git Branch:** main
-**Latest Commit:** 194b810
-**Status:** 🎉 ALL FEATURES COMPLETE!
+**Latest Commit:** 701f7a5
+**Status:** 🎉 ALL FEATURES COMPLETE + BUG FIXED!
 
 ---
 
 ## 🐛 Bug Fixes
 
-### Docker Database Access Fix (Commit: 194b810)
-**Issue:** Tasks running in Docker containers failed with `SQLITE_ERROR: no such table: run_history`
+### Docker Database Access Fix (Commits: 194b810, 701f7a5)
+**Issue:** Tasks running in Docker containers failed with database errors:
+- `SQLITE_ERROR: no such table: run_history`
+- `SQLITE_CONSTRAINT: FOREIGN KEY constraint failed`
 
-**Root Cause:** Docker containers didn't have access to the database file
+**Root Causes:** 
+1. Docker containers didn't have access to the database file
+2. Foreign key constraints prevented inserting run_history records for tasks passed via environment variables
 
-**Solution:** 
-- Added volume mount for `/app/data` directory in containerManager
-- Container now shares the same database file as the main backend process
+**Solutions:** 
+- Added volume mount for `/app/data` directory in containerManager to share database between host and containers
+- Set `DB_PATH` environment variable to ensure containers use the mounted database
+- Disabled foreign key constraints in container mode since task data comes from environment variables
 - Rebuilt Docker image with updated configuration
 
 **Files Modified:**
-- `backend/src/services/containerManager.js`
+- `backend/src/services/containerManager.js` - Added volume mount and DB_PATH env var
+- `backend/src/database/db.js` - Disabled FK constraints for container mode
 
-**Impact:** Docker task execution now works correctly with full database access
+**Impact:** Docker task execution now works correctly with full database access. Tasks can be executed in isolated containers while maintaining execution history.
