@@ -18,7 +18,10 @@ out/
 # Database files (generated at runtime)
 *.db
 *.sqlite
+*.db-wal
+*.db-shm
 backend/data/
+data/
 
 # Logs
 logs

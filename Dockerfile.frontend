@@ -1,5 +1,5 @@
-# Frontend Dockerfile for Production
-FROM node:18-alpine AS builder
+# Frontend Dockerfile for Docker (local dev + production)
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -7,8 +7,9 @@ WORKDIR /app
 # Copy package files
 COPY frontend/package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Use npm install instead of npm ci to handle platform-specific lockfile differences
+# (Windows lockfile may include win32 packages not available on Linux/Alpine)
+RUN npm install --legacy-peer-deps
 
 # Copy frontend source
 COPY frontend/ ./
@@ -17,9 +18,11 @@ COPY frontend/ ./
 RUN npm run build
 
 # Production image
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+ENV NODE_ENV=production
 
 # Copy necessary files from builder
 COPY --from=builder /app/package*.json ./
@@ -27,8 +30,8 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Install production dependencies only (re-resolve for Linux)
+RUN npm install --omit=dev --legacy-peer-deps
 
 # Expose port
 EXPOSE 3000
