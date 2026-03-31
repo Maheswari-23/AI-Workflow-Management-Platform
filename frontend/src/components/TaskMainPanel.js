@@ -120,101 +120,70 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
     setIsRunning(true);
     setRunOutput('');
     setRunStatus('running');
-    setRunStage('Initializing...');
+    setRunStage('Starting workflow...');
     setElapsed(0);
 
-    // Start elapsed timer
     const startTime = Date.now();
     elapsedRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
 
-    const appendLine = (line) => {
-      setRunOutput(prev => prev + line + '\n');
-      // Detect stage from log lines
-      if (line.includes('Agent:') || line.includes('Handing off')) setRunStage('Agent executing...');
-      else if (line.includes('Tool call') || line.includes('Called [')) setRunStage('Calling tools...');
-      else if (line.includes('Approval')) setRunStage('Waiting for approval...');
-      else if (line.includes('Retrying')) setRunStage('Retrying...');
-      else if (line.includes('Completed') || line.includes('=== Workflow Completed')) setRunStage('Finishing up...');
-      setTimeout(() => { outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
+    const finish = (status, stage) => {
+      clearInterval(elapsedRef.current);
+      setRunStatus(status);
+      setRunStage(stage);
+      setIsRunning(false);
     };
 
     try {
       const res = await fetch(`/api/tasks/${selectedTask.id}/run`, { method: 'POST' });
       const data = await res.json();
       if (!data.runId) {
-        setRunStatus('failed');
-        setRunStage('Failed to start');
-        appendLine('Error: ' + (data.error || 'Failed to start'));
-        clearInterval(elapsedRef.current);
-        setIsRunning(false);
+        setRunOutput('Error: ' + (data.error || 'Failed to start'));
+        finish('failed', 'Failed to start');
         return;
       }
 
       const runId = data.runId;
-      setRunStage('Workflow started...');
-      appendLine(`Run #${runId} started`);
+      setRunStage('Workflow running...');
 
-      const eventSource = new EventSource('/api/stream');
-
-      eventSource.addEventListener('log', (e) => {
-        try {
-          const { line, runId: eRunId } = JSON.parse(e.data);
-          if (eRunId === runId) appendLine(line);
-        } catch(err) {}
-      });
-
-      eventSource.addEventListener('status', (e) => {
-        try {
-          const { status: s, runId: eRunId } = JSON.parse(e.data);
-          if (eRunId !== runId) return;
-          if (s === 'completed') {
-            eventSource.close();
-            clearInterval(elapsedRef.current);
-            setRunStatus('completed');
-            setRunStage('Completed');
-            setIsRunning(false);
-            onTaskUpdate({ ...selectedTask, status: 'completed' });
-          } else if (s === 'failed') {
-            eventSource.close();
-            clearInterval(elapsedRef.current);
-            setRunStatus('failed');
-            setRunStage('Failed');
-            setIsRunning(false);
-          } else if (s === 'retrying') {
-            setRunStatus('retrying');
-            setRunStage('Retrying...');
-            appendLine('\n⟳ Retrying...');
-          }
-        } catch(err) {}
-      });
-
-      const pollInterval = setInterval(async () => {
+      // Poll every 1.5s — show output as it grows in the DB
+      let lastLength = 0;
+      const poll = setInterval(async () => {
         try {
           const r = await fetch(`/api/tasks/${selectedTask.id}/run/${runId}/output`);
           const d = await r.json();
-          if (d.status === 'completed' || d.status === 'failed') {
-            clearInterval(pollInterval);
-            eventSource.close();
-            clearInterval(elapsedRef.current);
-            setRunOutput(d.output || d.error || 'Run finished.');
-            setRunStatus(d.status);
-            setRunStage(d.status === 'completed' ? 'Completed' : 'Failed');
-            setIsRunning(false);
-            if (d.status === 'completed') onTaskUpdate({ ...selectedTask, status: 'completed' });
+
+          if (d.output && d.output.length > lastLength) {
+            lastLength = d.output.length;
+            setRunOutput(d.output);
+            setTimeout(() => { outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight, behavior: 'smooth' }); }, 50);
+            // Detect stage
+            if (d.output.includes('-> [') || d.output.includes('Tool call')) setRunStage('Calling tools...');
+            else if (d.output.includes('Agent:') || d.output.includes('Handing off')) setRunStage('Agent executing...');
+            else if (d.output.includes('Approval')) setRunStage('Waiting for approval...');
+            else if (d.output.includes('Retrying')) setRunStage('Retrying...');
+            else if (d.output.includes('Final Report') || d.output.includes('Output:')) setRunStage('Generating output...');
+          }
+
+          if (d.status === 'completed') {
+            clearInterval(poll);
+            setRunOutput(d.output || 'Completed.');
+            finish('completed', 'Completed');
+            onTaskUpdate({ ...selectedTask, status: 'completed' });
+          } else if (d.status === 'failed') {
+            clearInterval(poll);
+            setRunOutput(d.output || d.error || 'Run failed.');
+            finish('failed', 'Failed');
           }
         } catch(e) {}
-      }, 4000);
+      }, 1500);
 
-      setTimeout(() => { clearInterval(pollInterval); eventSource.close(); clearInterval(elapsedRef.current); setIsRunning(false); }, 600000);
+      setTimeout(() => { clearInterval(poll); finish('failed', 'Timed out'); }, 600000);
 
     } catch (err) {
-      clearInterval(elapsedRef.current);
-      setRunStatus('failed');
-      setRunStage('Error');
-      appendLine('Error: ' + err.message);
-      setIsRunning(false);
+      setRunOutput('Error: ' + err.message);
+      finish('failed', 'Error');
     }
   };
 
