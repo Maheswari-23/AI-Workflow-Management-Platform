@@ -23,6 +23,8 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   const [pendingApproval, setPendingApproval] = useState(null);
   const [approvalFeedback, setApprovalFeedback] = useState('');
   const [isDeciding, setIsDeciding] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({ prompts: [], toolCalls: [], tokenUsage: 0 });
   const elapsedRef = useRef(null);
   const outputRef = useRef(null);
 
@@ -49,6 +51,7 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
       setElapsed(0);
       setPendingApproval(null);
       setApprovalFeedback('');
+      setDebugInfo({ prompts: [], toolCalls: [], tokenUsage: 0 });
     }
   }, [selectedTask]);
 
@@ -337,11 +340,23 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
 
         {/* Workflow Steps */}
         <div style={card}>
-          <button type="button" onClick={handleGenerate} disabled={!formData.description || isGenerating}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-85 disabled:opacity-50 mb-4"
-            style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
-            {isGenerating ? (<><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating...</>) : 'Generate Workflow Steps (AI)'}
-          </button>
+          <div className="flex items-center justify-between mb-4">
+            <button type="button" onClick={handleGenerate} disabled={!formData.description || isGenerating}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-85 disabled:opacity-50"
+              style={{ background: L, boxShadow: `0 4px 12px rgba(181,123,238,0.3)` }}>
+              {isGenerating ? (<><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating...</>) : 'Generate Workflow Steps (AI)'}
+            </button>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={debugMode} 
+                onChange={(e) => setDebugMode(e.target.checked)}
+                className="w-4 h-4"
+                style={{ accentColor: L }}
+              />
+              <span className="text-xs font-semibold" style={{ color: TM }}>🔧 Debug Mode</span>
+            </label>
+          </div>
           <label style={lbl}>Workflow Steps</label>
           <textarea name="workflow_steps" rows="6" value={formData.workflow_steps} onChange={handleChange}
             placeholder="Workflow steps appear here after AI generation, or type manually..."
@@ -454,6 +469,94 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                 {runOutput || ' '}
               </pre>
             </div>
+
+            {/* Debug Info Panel */}
+            {debugMode && (runStatus === 'completed' || runStatus === 'failed') && (
+              <div className="px-5 py-4" style={{ background: '#fafafa', borderTop: `1.5px solid ${LB}` }}>
+                <h4 className="text-xs font-bold mb-3" style={{ color: TH }}>🔧 Debug Information</h4>
+                
+                <div className="space-y-3">
+                  {/* Token Usage */}
+                  <div className="p-3 rounded-lg" style={{ background: '#fff', border: `1px solid ${LB}` }}>
+                    <p className="text-xs font-semibold mb-1" style={{ color: TH }}>Token Usage</p>
+                    <p className="text-xs" style={{ color: TM }}>
+                      Estimated: ~{Math.floor(runOutput.length / 4)} tokens
+                      <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full" style={{ background: LL, color: L }}>
+                        ${((runOutput.length / 4) * 0.00001).toFixed(4)}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Tool Calls */}
+                  <div className="p-3 rounded-lg" style={{ background: '#fff', border: `1px solid ${LB}` }}>
+                    <p className="text-xs font-semibold mb-2" style={{ color: TH }}>Tool Calls Detected</p>
+                    {runOutput.match(/-> \[(\w+)\]/g) ? (
+                      <div className="flex flex-wrap gap-1">
+                        {[...new Set(runOutput.match(/-> \[(\w+)\]/g).map(m => m.match(/\[(\w+)\]/)[1]))].map(tool => (
+                          <span key={tool} className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ background: LL, color: L }}>
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs" style={{ color: TM }}>No tool calls detected</p>
+                    )}
+                  </div>
+
+                  {/* Execution Time Breakdown */}
+                  <div className="p-3 rounded-lg" style={{ background: '#fff', border: `1px solid ${LB}` }}>
+                    <p className="text-xs font-semibold mb-1" style={{ color: TH }}>Execution Time</p>
+                    <p className="text-xs" style={{ color: TM }}>
+                      Total: {elapsed}s
+                      {runStatus === 'completed' && (
+                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#d1fae5', color: '#065f46' }}>
+                          Success
+                        </span>
+                      )}
+                      {runStatus === 'failed' && (
+                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#fee2e2', color: '#991b1b' }}>
+                          Failed
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Error Details (if failed) */}
+                  {runStatus === 'failed' && (
+                    <div className="p-3 rounded-lg" style={{ background: '#fef2f2', border: `1px solid #fecaca` }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: '#991b1b' }}>Error Details</p>
+                      <pre className="text-[10px] font-mono whitespace-pre-wrap" style={{ color: '#7f1d1d' }}>
+                        {runOutput.split('\n').filter(line => 
+                          line.includes('Error') || 
+                          line.includes('Failed') || 
+                          line.includes('Exception')
+                        ).join('\n') || 'No specific error message found'}
+                      </pre>
+                      <button 
+                        onClick={handleRun}
+                        className="mt-3 px-3 py-1.5 text-xs font-semibold rounded-lg hover:opacity-85"
+                        style={{ background: '#991b1b', color: '#fff' }}>
+                        🔄 Retry Workflow
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Agent Handoffs */}
+                  {runOutput.includes('Handing off') && (
+                    <div className="p-3 rounded-lg" style={{ background: '#fff', border: `1px solid ${LB}` }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: TH }}>Agent Handoffs</p>
+                      <div className="space-y-1">
+                        {runOutput.match(/Handing off to: (.+)/g)?.map((line, i) => (
+                          <p key={i} className="text-[10px]" style={{ color: TM }}>
+                            Step {i + 1}: {line.replace('Handing off to: ', '')}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
