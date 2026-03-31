@@ -204,8 +204,8 @@ export default function MarketplacePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredAgents.map(agent => (
               <div key={agent.id}
-                className="rounded-2xl p-6 cursor-pointer transition-all hover:shadow-lg"
-                style={{ background: '#fff', border: `1.5px solid ${LB}` }}
+                className="rounded-2xl p-6 cursor-pointer transition-all hover:shadow-lg flex flex-col"
+                style={{ background: '#fff', border: `1.5px solid ${LB}`, minHeight: '320px' }}
                 onClick={() => setSelectedAgent(agent)}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center" 
@@ -220,8 +220,8 @@ export default function MarketplacePage() {
                   </span>
                 </div>
                 <h3 className="text-lg font-bold mb-2" style={{ color: TH }}>{agent.name}</h3>
-                <p className="text-sm mb-4 line-clamp-2" style={{ color: TM }}>{agent.description}</p>
-                <div className="flex flex-wrap gap-1 mb-4">
+                <p className="text-sm mb-4" style={{ color: TM, minHeight: '40px' }}>{agent.description}</p>
+                <div className="flex flex-wrap gap-1 mb-4" style={{ minHeight: '28px' }}>
                   {agent.skills.slice(0, 3).map(skill => (
                     <span key={skill} className="text-xs px-2 py-0.5 rounded-full" style={{ background: LL, color: L }}>
                       {skill}
@@ -234,7 +234,7 @@ export default function MarketplacePage() {
                   )}
                 </div>
                 <button 
-                  className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl hover:opacity-85 transition-all"
+                  className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl hover:opacity-85 transition-all mt-auto"
                   style={{ background: L, color: '#fff' }}
                   onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent); }}>
                   Install Agent →
