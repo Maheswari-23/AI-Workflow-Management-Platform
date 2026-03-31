@@ -17,6 +17,20 @@ const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
   } else {
     console.log('Connected to SQLite database at', path.resolve(DB_PATH));
     
+    // Configure database for better concurrent access
+    db.configure('busyTimeout', 5000); // Wait up to 5 seconds for locks
+    
+    // Enable WAL mode for better concurrent read/write performance
+    db.run('PRAGMA journal_mode = WAL', (walErr) => {
+      if (walErr) console.error('Failed to enable WAL mode:', walErr);
+      else console.log('WAL mode enabled for better concurrency');
+    });
+    
+    // Set busy timeout
+    db.run('PRAGMA busy_timeout = 5000', (timeoutErr) => {
+      if (timeoutErr) console.error('Failed to set busy timeout:', timeoutErr);
+    });
+    
     // For Docker containers, disable foreign key constraints FIRST
     // since task data comes from env vars, not the database
     if (process.env.TASK_MODE === 'container') {
@@ -28,6 +42,7 @@ const db = new sqlite3.Database(path.resolve(DB_PATH), (err) => {
       });
     } else {
       initializeSchema();
+    }
     }
   }
 });
@@ -291,28 +306,64 @@ function initializeSchema() {
   });
 }
 
-// Promisified helpers
-const dbRun = (sql, params = []) =>
+// Promisified helpers with retry logic for I/O errors
+const dbRun = (sql, params = [], retries = 3) =>
   new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ lastID: this.lastID, changes: this.changes });
-    });
+    const attempt = (retriesLeft) => {
+      db.run(sql, params, function (err) {
+        if (err) {
+          // Retry on I/O errors or busy database
+          if ((err.code === 'SQLITE_IOERR' || err.code === 'SQLITE_BUSY') && retriesLeft > 0) {
+            console.log(`Database ${err.code}, retrying... (${retriesLeft} attempts left)`);
+            setTimeout(() => attempt(retriesLeft - 1), 100 * (4 - retriesLeft)); // Exponential backoff
+          } else {
+            reject(err);
+          }
+        } else {
+          resolve({ lastID: this.lastID, changes: this.changes });
+        }
+      });
+    };
+    attempt(retries);
   });
 
-const dbGet = (sql, params = []) =>
+const dbGet = (sql, params = [], retries = 3) =>
   new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
+    const attempt = (retriesLeft) => {
+      db.get(sql, params, (err, row) => {
+        if (err) {
+          if ((err.code === 'SQLITE_IOERR' || err.code === 'SQLITE_BUSY') && retriesLeft > 0) {
+            console.log(`Database ${err.code}, retrying... (${retriesLeft} attempts left)`);
+            setTimeout(() => attempt(retriesLeft - 1), 100 * (4 - retriesLeft));
+          } else {
+            reject(err);
+          }
+        } else {
+          resolve(row);
+        }
+      });
+    };
+    attempt(retries);
   });
 
-const dbAll = (sql, params = []) =>
+const dbAll = (sql, params = [], retries = 3) =>
   new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+    const attempt = (retriesLeft) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          if ((err.code === 'SQLITE_IOERR' || err.code === 'SQLITE_BUSY') && retriesLeft > 0) {
+            console.log(`Database ${err.code}, retrying... (${retriesLeft} attempts left)`);
+            setTimeout(() => attempt(retriesLeft - 1), 100 * (4 - retriesLeft));
+          } else {
+            reject(err);
+          }
+        } else {
+          resolve(rows);
+        }
+      });
+    };
+    attempt(retries);
+  });
     });
   });
 
