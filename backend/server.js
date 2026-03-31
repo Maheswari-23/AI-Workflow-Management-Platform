@@ -56,6 +56,7 @@ app.use('/api/memory', require('./src/routes/memory'));
 app.use('/api/canvas', require('./src/routes/canvas'));
 app.use('/api/templates', require('./src/routes/templates'));
 app.use('/api/seed', require('./src/routes/seed'));
+app.use('/api', require('./src/routes/docker-tasks'));
 
 // SSE real-time stream
 app.get('/api/stream', (_req, res) => {
