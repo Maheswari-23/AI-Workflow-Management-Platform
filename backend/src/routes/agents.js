@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
-const openCode = require('../opencode/client');
-const safeParse = require('../utils/safeParse');
 const { validateSchema, schemas } = require('../utils/validator');
 
 // ─────────────────────────────────────────────

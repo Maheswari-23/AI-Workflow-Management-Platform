@@ -96,7 +96,7 @@ router.get('/:id/versions', async (req, res) => {
 });
 
 // POST restore a version
-router.post('/:id/restore/:versionId', async (req, res) => {
+router.post('/:id/restore/:versionId', async (_req, res) => {
   try {
     const version = await dbGet('SELECT * FROM task_versions WHERE id = ? AND task_id = ?', [req.params.versionId, req.params.id]);
     if (!version) return res.status(404).json({ error: 'Version not found' });

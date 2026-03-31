@@ -4,7 +4,7 @@ const { dbRun, dbGet, dbAll } = require('../database/db');
 const { validateSchema, schemas } = require('../utils/validator');
 
 // GET all tools
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const tools = await dbAll('SELECT * FROM tools ORDER BY created_at DESC');
     res.json({ tools });
@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
 // PUT update tool
 router.put('/:id', async (req, res) => {
   try {
-    const { name, type, description, endpoint, method, headers, status } = req.body;
+    const { name, type, description, endpoint, method, status } = req.body;
     await dbRun(
       `UPDATE tools SET name = COALESCE(?, name), type = COALESCE(?, type),
        description = COALESCE(?, description), endpoint = COALESCE(?, endpoint),

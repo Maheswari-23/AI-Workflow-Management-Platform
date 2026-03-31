@@ -6,7 +6,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Initialize database (creates tables if needed)
-const { db } = require('./src/database/db');
+require('./src/database/db');
 
 const config = require('./src/config');
 const app = express();
@@ -53,11 +53,10 @@ app.use('/api/schedules', require('./src/routes/schedules'));
 app.use('/api/history', require('./src/routes/history'));
 app.use('/api/approvals', require('./src/routes/approvals'));
 app.use('/api/memory', require('./src/routes/memory'));
+app.use('/api/canvas', require('./src/routes/canvas'));
 
 // SSE real-time stream
-const { broadcast } = require('./src/engine/workflowRunner');
-const sseClients = new Set();
-app.get('/api/stream', (req, res) => {
+app.get('/api/stream', (_req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -67,11 +66,11 @@ app.get('/api/stream', (req, res) => {
   // Patch broadcast to use this client
   const workflowRunner = require('./src/engine/workflowRunner');
   workflowRunner._addClient(res);
-  req.on('close', () => workflowRunner._removeClient(res));
+  _req.on('close', () => workflowRunner._removeClient(res));
 });
 
 // Error handling
-app.use((err, req, res, next) => {
+app.use((err, _req, res, _next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });

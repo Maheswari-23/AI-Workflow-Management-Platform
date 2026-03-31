@@ -5,7 +5,7 @@ const axios = require('axios');
 const { encrypt, decrypt } = require('../utils/crypto');
 
 // GET all LLM providers
-router.get('/providers', async (req, res) => {
+router.get('/providers', async (_req, res) => {
   try {
     const providers = await dbAll('SELECT * FROM llm_providers ORDER BY name');
     const safe = providers.map(p => ({
@@ -20,7 +20,7 @@ router.get('/providers', async (req, res) => {
 });
 
 // GET single provider
-router.get('/providers/:id', async (req, res) => {
+router.get('/providers/:id', async (_req, res) => {
   try {
     const provider = await dbGet('SELECT * FROM llm_providers WHERE id = ?', [req.params.id]);
     if (!provider) return res.status(404).json({ error: 'Provider not found' });
