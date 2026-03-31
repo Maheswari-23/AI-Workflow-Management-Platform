@@ -232,6 +232,9 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
           }
           await emit(`✅ Approved! Continuing to ${nextAgent.name}...`);
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
+          // Resume workflow status to 'running' after approval
+          await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['running', runId]);
+          broadcast('status', { runId, status: 'running', taskId: task.id });
         }
       }
     } else if (hasApprovalGates) {
@@ -264,6 +267,9 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
           }
           await emit('✅ Approved! Continuing...');
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
+          // Resume workflow status to 'running' after approval
+          await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['running', runId]);
+          broadcast('status', { runId, status: 'running', taskId: task.id });
         }
       }
     }

@@ -208,6 +208,13 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
               setPendingApproval(approval);
               toast.success('Approval required! Review the output below.', 10000);
             }
+          } else if (d.status === 'running') {
+            // If status changed back to running (after approval), clear approval state
+            if (runStatus === 'awaiting_approval') {
+              setPendingApproval(null);
+              setRunStatus('running');
+              setRunStage('Workflow continuing...');
+            }
           } else if (d.status === 'completed') {
             clearInterval(poll);
             setRunOutput(d.output || 'Completed.');
