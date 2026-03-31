@@ -8,11 +8,6 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 // Initialize database (creates tables if needed)
 require('./src/database/db');
 
-// Run database initialization/seeding
-setTimeout(() => {
-  require('./init-db');
-}, 2000);
-
 const config = require('./src/config');
 const app = express();
 const PORT = config.PORT;
