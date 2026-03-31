@@ -5,6 +5,7 @@
  * This script runs inside a Docker container to execute a single task
  */
 
+const { dbGet } = require('./src/database/db');
 const workflowRunner = require('./src/engine/workflowRunner');
 
 // Get task configuration from environment variables
@@ -25,9 +26,15 @@ async function runTask() {
   try {
     const startTime = Date.now();
     
-    // Execute workflow
+    // Get task from database
+    const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [taskConfig.taskId]);
+    if (!task) {
+      throw new Error(`Task ${taskConfig.taskId} not found`);
+    }
+    
+    // Execute workflow using the actual workflowRunner
     console.log('▶️  Starting workflow execution...');
-    const result = await workflowRunner.executeWorkflow(taskConfig);
+    const result = await workflowRunner.run(task, 'docker', null);
     
     const duration = Date.now() - startTime;
     console.log(`✅ Workflow completed in ${duration}ms`);
