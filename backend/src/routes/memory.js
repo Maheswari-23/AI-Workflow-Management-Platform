@@ -2,10 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../database/db');
 
-// GET all memory for an agent
+// GET all memory for an agent (with optional search)
 router.get('/:agentId', async (req, res) => {
   try {
-    const rows = await dbAll('SELECT * FROM agent_memory WHERE agent_id = ? ORDER BY updated_at DESC', [req.params.agentId]);
+    const { search } = req.query;
+    let query = 'SELECT * FROM agent_memory WHERE agent_id = ?';
+    const params = [req.params.agentId];
+    
+    if (search) {
+      query += ' AND (key LIKE ? OR value LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    
+    query += ' ORDER BY updated_at DESC';
+    const rows = await dbAll(query, params);
     res.json({ memory: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
