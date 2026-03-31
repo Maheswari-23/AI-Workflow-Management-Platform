@@ -46,11 +46,13 @@ Deploy Orchestr to Render in 10 minutes with their generous free tier!
    CORS_ORIGIN=https://orchestr-frontend.onrender.com
    ```
 
-6. Add Persistent Disk:
+6. **Add Persistent Disk (IMPORTANT):**
+   - Scroll down to "Disk"
    - Click "Add Disk"
    - **Name:** `orchestr-data`
    - **Mount Path:** `/opt/render/project/src/data`
    - **Size:** 1 GB (free tier)
+   - Click "Save"
 
 7. Click **"Create Web Service"**
 8. Wait 3-5 minutes for deployment
