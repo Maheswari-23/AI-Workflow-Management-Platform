@@ -8,6 +8,8 @@ export default function ToolsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState({});
   const [selectedTool, setSelectedTool] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => { fetchTools(); }, []);
 
@@ -27,12 +29,31 @@ export default function ToolsPage() {
 
   const toggleGroup = (type) => setExpandedGroups(p => ({ ...p, [type]: !p[type] }));
 
-  const groupedTools = tools.reduce((acc, tool) => {
+  // Filter tools based on search and category
+  const filteredTools = tools.filter(tool => {
+    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         tool.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || tool.type === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const groupedTools = filteredTools.reduce((acc, tool) => {
     const type = tool.type || 'other';
     if (!acc[type]) acc[type] = [];
     acc[type].push(tool);
     return acc;
   }, {});
+
+  const categories = [
+    { id: 'all', name: 'All Tools', count: tools.length },
+    { id: 'fs', name: 'File System', count: tools.filter(t => t.type === 'fs').length },
+    { id: 'api', name: 'Web & API', count: tools.filter(t => t.type === 'api').length },
+    { id: 'browser', name: 'Browser', count: tools.filter(t => t.type === 'browser').length },
+    { id: 'ai', name: 'AI & NLP', count: tools.filter(t => t.type === 'ai').length },
+    { id: 'system', name: 'System', count: tools.filter(t => t.type === 'system').length },
+    { id: 'database', name: 'Database', count: tools.filter(t => t.type === 'database').length },
+    { id: 'other', name: 'Other', count: tools.filter(t => t.type === 'other' || !t.type).length },
+  ];
 
   const typeIcon = {
     fs:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>,
@@ -48,7 +69,59 @@ export default function ToolsPage() {
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
       <div className="px-6 py-4" style={{ borderBottom: `1.5px solid ${LB}`, background: '#fff' }}>
         <h1 className="text-2xl font-bold" style={{ color: TH }}>Tools Library</h1>
-        <p className="text-sm mt-0.5" style={{ color: TM }}>{tools.length} built-in tools available to all agents. Click any tool to see its details.</p>
+        <p className="text-sm mt-0.5" style={{ color: TM }}>{tools.length} built-in tools available. Search and filter to find what you need.</p>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="px-6 py-4" style={{ background: '#fafafa', borderBottom: `1px solid ${LB}` }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="flex gap-3 mb-4">
+            <div className="flex-1 relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: TM }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search tools by name or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                style={{ border: `1.5px solid ${LB}`, color: TH, background: '#fff' }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm hover:opacity-70"
+                  style={{ color: TM }}>
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Pills */}
+          <div className="flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={selectedCategory === cat.id 
+                  ? { background: L, color: '#fff', boxShadow: '0 2px 8px rgba(181,123,238,0.3)' }
+                  : { background: '#fff', color: TM, border: `1.5px solid ${LB}` }}>
+                {cat.name} ({cat.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Results count */}
+          {(searchQuery || selectedCategory !== 'all') && (
+            <div className="mt-3 text-xs" style={{ color: TM }}>
+              Showing {filteredTools.length} of {tools.length} tools
+              {searchQuery && ` matching "${searchQuery}"`}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
@@ -78,6 +151,14 @@ export default function ToolsPage() {
 
           {isLoading ? (
             <div className="p-12 text-center text-sm rounded-2xl" style={{ background: '#fff', border: `1.5px solid ${LB}`, color: TM }}>Loading tools...</div>
+          ) : filteredTools.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+              <svg className="w-12 h-12 mx-auto mb-3" style={{ color: TM }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <p className="text-sm font-semibold mb-1" style={{ color: TH }}>No tools found</p>
+              <p className="text-xs" style={{ color: TM }}>Try adjusting your search or filters</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {Object.entries(groupedTools).map(([type, typeTools]) => (
