@@ -17,7 +17,7 @@ const db = new sqlite3.Database(DB_PATH);
 
 console.log('🔧 Initializing database...');
 
-// Check if tools table has data
+// Check and seed tools
 db.get('SELECT COUNT(*) as count FROM tools', (err, row) => {
   if (err) {
     console.error('Error checking tools:', err);
@@ -31,6 +31,102 @@ db.get('SELECT COUNT(*) as count FROM tools', (err, row) => {
     console.log(`✓ Database already has ${row.count} tools`);
   }
 });
+
+// Check and seed LLM providers
+db.get('SELECT COUNT(*) as count FROM llm_providers', (err, row) => {
+  if (err) {
+    console.error('Error checking LLM providers:', err);
+    return;
+  }
+
+  if (row.count === 0) {
+    console.log('📦 Seeding LLM providers...');
+    seedLLMProviders();
+  } else {
+    console.log(`✓ Database already has ${row.count} LLM providers`);
+  }
+});
+
+function seedLLMProviders() {
+  const providers = [
+    {
+      name: 'OpenAI GPT-4',
+      provider: 'openai',
+      model: 'gpt-4',
+      api_key: process.env.OPENAI_API_KEY || '',
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      status: process.env.OPENAI_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'OpenAI GPT-3.5 Turbo',
+      provider: 'openai',
+      model: 'gpt-3.5-turbo',
+      api_key: process.env.OPENAI_API_KEY || '',
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      status: process.env.OPENAI_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'Anthropic Claude 3 Opus',
+      provider: 'anthropic',
+      model: 'claude-3-opus-20240229',
+      api_key: process.env.ANTHROPIC_API_KEY || '',
+      endpoint: 'https://api.anthropic.com/v1/messages',
+      status: process.env.ANTHROPIC_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'Anthropic Claude 3 Sonnet',
+      provider: 'anthropic',
+      model: 'claude-3-sonnet-20240229',
+      api_key: process.env.ANTHROPIC_API_KEY || '',
+      endpoint: 'https://api.anthropic.com/v1/messages',
+      status: process.env.ANTHROPIC_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'Google Gemini Pro',
+      provider: 'google',
+      model: 'gemini-pro',
+      api_key: process.env.GOOGLE_API_KEY || '',
+      endpoint: 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent',
+      status: process.env.GOOGLE_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'Groq Llama 3 70B',
+      provider: 'groq',
+      model: 'llama3-70b-8192',
+      api_key: process.env.GROQ_API_KEY || '',
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+      status: process.env.GROQ_API_KEY ? 'active' : 'inactive'
+    },
+    {
+      name: 'Groq Mixtral 8x7B',
+      provider: 'groq',
+      model: 'mixtral-8x7b-32768',
+      api_key: process.env.GROQ_API_KEY || '',
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+      status: process.env.GROQ_API_KEY ? 'active' : 'inactive'
+    }
+  ];
+
+  const stmt = db.prepare('INSERT INTO llm_providers (name, provider, model, api_key, endpoint, status) VALUES (?, ?, ?, ?, ?, ?)');
+  
+  let count = 0;
+  providers.forEach(llm => {
+    stmt.run([llm.name, llm.provider, llm.model, llm.api_key, llm.endpoint, llm.status], (err) => {
+      if (err) {
+        console.error(`✗ Error seeding ${llm.name}:`, err.message);
+      } else {
+        count++;
+        if (llm.status === 'active') {
+          console.log(`✓ Configured ${llm.name} (API key found)`);
+        }
+        if (count === providers.length) {
+          console.log(`✓ Seeded ${count} LLM providers`);
+          stmt.finalize();
+        }
+      }
+    });
+  });
+}
 
 function seedTools() {
   const tools = [
