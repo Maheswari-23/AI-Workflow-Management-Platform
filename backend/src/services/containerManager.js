@@ -18,6 +18,19 @@ class ContainerManager extends EventEmitter {
    * Execute a task in a Docker container
    */
   async executeTask(taskConfig) {
+    // Check if image exists first
+    const { execSync } = require('child_process');
+    try {
+      const imageId = execSync('docker images -q orchestr-task-runner:latest', { encoding: 'utf-8' }).trim();
+      if (!imageId) {
+        throw new Error('Task runner image not found. Building now...');
+      }
+    } catch (checkErr) {
+      // Try to build the image
+      console.log('📦 Building task runner image...');
+      await this.buildTaskRunnerImage();
+    }
+    
     const containerId = `orchestr-task-${taskConfig.taskId}`;
     
     console.log(`🐳 Spawning container for task ${taskConfig.taskId}`);

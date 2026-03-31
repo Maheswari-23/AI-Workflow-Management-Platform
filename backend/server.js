@@ -99,21 +99,24 @@ app.listen(PORT, () => {
         
         if (dockerAvailable) {
           console.log('🐳 Docker detected - checking task runner image...');
-          // Check if image exists, build if not
-          const { spawn } = require('child_process');
-          const checkImage = spawn('docker', ['images', '-q', 'orchestr-task-runner:latest']);
           
-          checkImage.stdout.on('data', (data) => {
-            if (data.toString().trim()) {
+          // Check if image exists
+          const { execSync } = require('child_process');
+          try {
+            const imageId = execSync('docker images -q orchestr-task-runner:latest', { encoding: 'utf-8' }).trim();
+            
+            if (imageId) {
               console.log('✅ Task runner image ready');
             } else {
-              console.log('📦 Building task runner image...');
-              containerManager.buildTaskRunnerImage().catch(err => {
-                console.warn('⚠️  Failed to build task runner image:', err.message);
-                console.log('   Tasks will run in regular mode');
-              });
+              console.log('📦 Building task runner image (this may take 1-2 minutes)...');
+              await containerManager.buildTaskRunnerImage();
+              console.log('✅ Task runner image built successfully');
             }
-          });
+          } catch (buildErr) {
+            console.warn('⚠️  Failed to build task runner image:', buildErr.message);
+            console.log('   Run manually: npm run docker:build-task-runner');
+            console.log('   Or disable Docker: USE_DOCKER_EXECUTION=false in .env');
+          }
         } else {
           console.log('ℹ️  Docker not available - tasks will run in regular mode');
         }
