@@ -9,7 +9,7 @@ const WORKFLOW_TEMPLATES = [
     name: 'Web Research Report',
     category: 'Research',
     description: 'Search the web for a topic, fetch relevant pages, and create a comprehensive research report with sources.',
-    icon: '🔍',
+    icon: 'search',
     agents: ['Web Researcher'],
     workflow_steps: `1. Use web_search to find top 5-10 results about the research topic
 2. Use fetch_webpage to read the content of the most relevant pages
@@ -27,7 +27,7 @@ const WORKFLOW_TEMPLATES = [
     name: 'Daily News Summary',
     category: 'Content',
     description: 'Fetch latest news on specified topics and create a formatted daily digest with analysis.',
-    icon: '📰',
+    icon: 'newspaper',
     agents: ['News Analyst'],
     workflow_steps: `1. Use get_news to fetch latest headlines for specified topics
 2. Filter and rank news by relevance and importance
@@ -45,7 +45,7 @@ const WORKFLOW_TEMPLATES = [
     name: 'Stock Market Analysis',
     category: 'Finance',
     description: 'Analyze stock prices, crypto markets, and provide investment insights with data visualization.',
-    icon: '📈',
+    icon: 'trending-up',
     agents: ['Market Intelligence'],
     workflow_steps: `1. Use fetch_stock_price to get current prices for specified stocks
 2. Use get_crypto_price to check cryptocurrency prices
@@ -64,7 +64,7 @@ const WORKFLOW_TEMPLATES = [
     name: 'Content Generation Pipeline',
     category: 'Content',
     description: 'Multi-agent pipeline: research topic → write content → translate → quality check.',
-    icon: '✍️',
+    icon: 'edit',
     agents: ['Web Researcher', 'Content Writer', 'Quality Auditor'],
     workflow_steps: `1. [Agent 1: Web Researcher] Research the topic using web_search and fetch_webpage
 2. Extract key points and create research summary
@@ -83,7 +83,7 @@ const WORKFLOW_TEMPLATES = [
     name: 'File Organization & Analysis',
     category: 'Automation',
     description: 'Scan directories, analyze files, categorize content, and create organized reports.',
-    icon: '📁',
+    icon: 'folder',
     agents: ['File Manager'],
     workflow_steps: `1. Use list_directory to scan specified folder
 2. Use read_file to analyze file contents

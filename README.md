@@ -1,15 +1,17 @@
-# AI-Based Workflow Management Platform
+# Orchestr
 
-An intelligent workflow management system that uses AI agents to automate tasks through the OpenCode framework.
+An intelligent AI workflow platform that orchestrates multi-agent automation through the OpenCode framework.
 
 ## Features
 
 - **Agent Management**: Create and manage AI agents with custom skills and prompts
 - **LLM Integration**: Support for multiple LLM providers (OpenAI, Anthropic, Google)
 - **Workflow Engine**: Automatic workflow generation and execution
-- **Tool Integration**: Connect external APIs and tools
+- **Tool Integration**: Connect external APIs and tools (40+ built-in tools)
+- **Workflow Templates**: Pre-built templates for common automation tasks
 - **Scheduling**: Cron-based and trigger-based automation
 - **Monitoring**: Real-time dashboard and execution logs
+- **Keyboard Shortcuts**: Efficient workflow management with hotkeys
 
 ## Tech Stack
 

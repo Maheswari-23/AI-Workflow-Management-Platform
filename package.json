@@ -1,7 +1,7 @@
 {
-  "name": "ai-workflow-platform",
+  "name": "orchestr",
   "version": "1.0.0",
-  "description": "AI-based Workflow Management Platform using OpenCode framework",
+  "description": "Orchestr - AI Workflow Platform for multi-agent automation",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",

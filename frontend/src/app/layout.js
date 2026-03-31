@@ -3,8 +3,8 @@ import { ToastProvider } from '../components/Toast';
 import './globals.css';
 
 export const metadata = {
-  title: 'AI Workflow Platform',
-  description: 'Manage AI agents and workflows',
+  title: 'Orchestr - AI Workflow Platform',
+  description: 'Orchestrate intelligent AI workflows with multi-agent automation',
 }
 
 export default function RootLayout({ children }) {
