@@ -259,7 +259,8 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
             setPendingApproval(null);
           } else if (d.status === 'failed') {
             clearInterval(poll);
-            setRunOutput(d.output || d.error || 'Run failed.');
+            const finalOutput = d.output ? (d.error ? d.output + '\n\n❌ Error: ' + d.error : d.output) : (d.error || 'Run failed.');
+            setRunOutput(finalOutput);
             finish('failed', 'Failed');
             setPendingApproval(null);
           }
