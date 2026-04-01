@@ -194,16 +194,17 @@ function initializeSchema() {
         ('Groq', 'https://api.groq.com/openai/v1', 'llama-3.1-8b-instant'),
         ('OpenAI', 'https://api.openai.com/v1', 'gpt-4o'),
         ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022'),
-        ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-pro')
+        ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-flash')
     `);
 
     // Set Groq as default if no default is set
     db.run(`UPDATE llm_providers SET is_default = 1 WHERE name = 'Groq' AND NOT EXISTS (SELECT 1 FROM llm_providers WHERE is_default = 1)`);
     
-    // Migration: Clear Groq keys from database to force use of .env (prevents stale keys)
-    db.run(`UPDATE llm_providers SET api_key = '' WHERE name = 'Groq' AND configured = 0`);
-    // Also update model for Groq if it's currently set to the old default
+    // Update models to recommended defaults for better performance
     db.run(`UPDATE llm_providers SET model = 'llama-3.1-8b-instant' WHERE name = 'Groq' AND (model = 'llama-3.3-70b-versatile' OR model = '')`);
+    db.run(`UPDATE llm_providers SET model = 'gemini-1.5-flash' WHERE name = 'Gemini' AND (model = 'gemini-1.5-pro' OR model = '')`);
+    db.run(`UPDATE llm_providers SET model = 'gpt-4o' WHERE name = 'OpenAI' AND model = ''`);
+    db.run(`UPDATE llm_providers SET model = 'claude-3-5-sonnet-20241022' WHERE name = 'Anthropic' AND model = ''`);
 
     // Seed built-in tools
     const builtinTools = [

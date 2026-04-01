@@ -89,16 +89,42 @@ router.post('/providers/:name/set-default', async (req, res) => {
 router.post('/test', async (req, res) => {
   try {
     const { provider_name } = req.body;
-    let provider;
-    if (provider_name) {
-      provider = await dbGet('SELECT * FROM llm_providers WHERE name = ?', [provider_name]);
+    
+    if (!provider_name) {
+      return res.status(400).json({ success: false, error: 'Provider name is required' });
     }
-    // Decrypt the stored key
-    const key = provider?.api_key ? decrypt(provider.api_key) : process.env.GROQ_API_KEY;
-    const baseUrl = provider?.base_url || 'https://api.groq.com/openai/v1';
-    const model = provider?.model || 'llama-3.1-8b-instant';
 
-    if (!key) return res.status(400).json({ error: 'No API key configured for this provider' });
+    const provider = await dbGet('SELECT * FROM llm_providers WHERE name = ?', [provider_name]);
+    
+    if (!provider) {
+      return res.status(404).json({ success: false, error: `Provider "${provider_name}" not found` });
+    }
+
+    // BYOK: Only use user-provided keys from database (no env fallbacks)
+    const key = provider.api_key ? decrypt(provider.api_key) : '';
+    const baseUrl = provider.base_url || '';
+    const model = provider.model || '';
+
+    if (!key) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `No API key configured for "${provider_name}". Please add your API key in the settings.` 
+      });
+    }
+
+    if (!baseUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `No base URL configured for "${provider_name}". Please configure the base URL in settings.` 
+      });
+    }
+
+    if (!model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `No model configured for "${provider_name}". Please configure the model in settings.` 
+      });
+    }
 
     const response = await axios.post(
       `${baseUrl}/chat/completions`,

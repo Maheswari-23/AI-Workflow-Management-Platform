@@ -44,6 +44,11 @@ class OpenCodeClient {
  * Initializes and returns an OpenCode client dynamically configured
  * with the API parameters from the database.
  * Uses the default provider if no name is specified.
+ * 
+ * BYOK (Bring Your Own Key) Model:
+ * - Users MUST provide their own API keys via the UI
+ * - No environment variable fallbacks
+ * - The default provider's key is used for all task executions
  */
 async function getOpenCodeClient(providerName = null) {
   let providerDetails;
@@ -59,14 +64,34 @@ async function getOpenCodeClient(providerName = null) {
     }
   }
 
-  let apiKey = process.env.GROQ_API_KEY || '';
-  let baseUrl = 'https://api.groq.com/openai/v1';
-  let modelName = 'llama-3.3-70b-versatile';
+  if (!providerDetails) {
+    throw new Error('No LLM provider configured. Please configure a provider in Settings > LLM Settings.');
+  }
 
-  if (providerDetails) {
-    apiKey = decrypt(providerDetails.api_key) || apiKey;
-    baseUrl = providerDetails.base_url || baseUrl;
-    modelName = providerDetails.model || modelName;
+  // BYOK: Only use user-provided keys from database (no env fallbacks)
+  const apiKey = providerDetails.api_key ? decrypt(providerDetails.api_key) : '';
+  const baseUrl = providerDetails.base_url || '';
+  const modelName = providerDetails.model || '';
+
+  if (!apiKey) {
+    throw new Error(
+      `No API key configured for "${providerDetails.name}". ` +
+      `Please add your API key in Settings > LLM Settings and set it as default.`
+    );
+  }
+
+  if (!baseUrl) {
+    throw new Error(
+      `No base URL configured for "${providerDetails.name}". ` +
+      `Please configure the base URL in Settings > LLM Settings.`
+    );
+  }
+
+  if (!modelName) {
+    throw new Error(
+      `No model configured for "${providerDetails.name}". ` +
+      `Please configure the model in Settings > LLM Settings.`
+    );
   }
 
   return new OpenCodeClient(apiKey, baseUrl, modelName);
