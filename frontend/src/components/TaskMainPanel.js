@@ -471,6 +471,21 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
               </pre>
             </div>
 
+            {/* Clear Final Output Presentation */}
+            {runStatus === 'completed' && runOutput && (
+              <div className="px-5 py-4" style={{ background: '#f8fafc', borderTop: '1.5px solid #e2e8f0' }}>
+                <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#065f46' }}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                  Final Output
+                </h3>
+                <div className="p-4 rounded-xl shadow-sm" style={{ background: '#fff', border: '1px solid #e2e8f0' }}>
+                  <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-gray-800">
+                    {runOutput.includes('Output:\n') ? runOutput.split('Output:\n').pop().split('=== Workflow Completed ===')[0].trim() : runOutput}
+                  </pre>
+                </div>
+              </div>
+            )}
+
             {/* Debug Info Panel */}
             {debugMode && (runStatus === 'completed' || runStatus === 'failed') && (
               <div className="px-5 py-4" style={{ background: '#fafafa', borderTop: `1.5px solid ${LB}` }}>

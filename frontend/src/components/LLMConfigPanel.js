@@ -55,12 +55,14 @@ export default function LLMConfigPanel({ selectedProvider, onSave, onTestConnect
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: TH }}>{selectedProvider.name} Configuration</h1>
-            <p className="text-sm mt-1" style={{ color: TM }}>Configure API credentials for {selectedProvider.name}.</p>
+            <p className="text-sm mt-1" style={{ color: TM }}>
+              {selectedProvider.is_default ? '⭐ This is your default provider for task execution' : 'Configure and set as default to use for tasks'}
+            </p>
           </div>
           {selectedProvider.configured || selectedProvider.hasKey ? (
             <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#d1fae5', color: '#065f46' }}>✓ Configured</span>
           ) : (
-            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#fee2e2', color: '#991b1b' }}>Not Configured</span>
+            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#fee2e2', color: '#991b1b' }}>⚠ API Key Required</span>
           )}
         </div>
       </div>
@@ -68,11 +70,14 @@ export default function LLMConfigPanel({ selectedProvider, onSave, onTestConnect
         <div className="max-w-2xl mx-auto">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div style={card}>
-              <label style={lbl}>API Key <span style={{ color: L }}>*</span></label>
+              <label style={lbl}>API Key <span style={{ color: L }}>* Required</span></label>
               <input type="password" name="apiKey" value={formData.apiKey} onChange={handleChange}
-                placeholder={selectedProvider.hasKey ? '••••••••••••• (leave blank to keep existing)' : 'Enter your API key...'}
-                style={inp} />
-              <p className="text-xs mt-1.5" style={{ color: TM }}>Stored securely on backend, never exposed to browser.</p>
+                placeholder={selectedProvider.hasKey ? '••••••••••••• (leave blank to keep existing)' : 'Enter your API key (required)'}
+                style={inp} 
+                required={!selectedProvider.hasKey} />
+              <p className="text-xs mt-1.5" style={{ color: TM }}>
+                Your API key is encrypted and stored securely. Never shared or exposed.
+              </p>
             </div>
             <div style={card}>
               <label style={lbl}>Base URL</label>
