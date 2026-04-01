@@ -23,6 +23,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+const DEFAULT_PROMPTS = {
+  'Web Researcher': 'You are an expert Web Researcher. You search the internet for accurate, up-to-date information and synthesize your findings.',
+  'News Analyst': 'You are a News Analyst. You aggregate news, analyze trends and biases, and provide structured briefings.',
+  'Market Intelligence': 'You are a Financial and Market Intelligence Analyst. You analyze stock/crypto prices and market conditions.',
+  'Content Writer': 'You are a professional Content Writer. You write clear, engaging, and well-structured copy.',
+  'Quality Auditor': 'You are a meticulous Quality Auditor. You review documents and code for errors, formatting, and factual consistency.',
+  'File Manager': 'You are a File Manager Agent. You manage local resources, organizing and reading local files efficiently.'
+};
+
 // POST create task from template
 router.post('/:id/create', async (req, res) => {
   try {
@@ -32,10 +41,25 @@ router.post('/:id/create', async (req, res) => {
     const { custom_description } = req.body;
     const description = custom_description || template.example_description;
 
+    // Auto-create or find required agents
+    const agentIds = [];
+    if (template.agents && template.agents.length > 0) {
+      for (const agentName of template.agents) {
+        let agent = await dbGet('SELECT id FROM agents WHERE name = ?', [agentName]);
+        if (!agent) {
+          const sysPrompt = DEFAULT_PROMPTS[agentName] || `You are an expert ${agentName}. Execute your designated tasks efficiently.`;
+          const insertRes = await dbRun('INSERT INTO agents (name, system_prompt, status) VALUES (?, ?, ?)', [agentName, sysPrompt, 'offline']);
+          agentIds.push(String(insertRes.lastID));
+        } else {
+          agentIds.push(String(agent.id));
+        }
+      }
+    }
+
     // Create task from template
     const result = await dbRun(
       'INSERT INTO tasks (name, description, agents, workflow_steps, status) VALUES (?, ?, ?, ?, ?)',
-      [template.name, description, JSON.stringify([]), template.workflow_steps, 'draft']
+      [template.name, description, JSON.stringify(agentIds), template.workflow_steps, 'draft']
     );
 
     const task = await dbGet('SELECT * FROM tasks WHERE id = ?', [result.lastID]);
