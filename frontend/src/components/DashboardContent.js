@@ -19,35 +19,47 @@ const cards = [
 
 export default function DashboardContent() {
   const [stats, setStats] = useState({ agents: '—', tasks: '—', runs: '—', schedules: '—' });
+  const [analytics, setAnalytics] = useState(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [agentsRes, tasksRes, schedulesRes, historyRes] = await Promise.all([
+        const [agentsRes, tasksRes, schedulesRes, historyRes, analyticsRes] = await Promise.all([
           fetch('/api/agents'),
           fetch('/api/tasks'),
           fetch('/api/schedules'),
           fetch('/api/history?limit=1000'),
+          fetch('/api/history/analytics')
         ]);
-        const [agentsData, tasksData, schedulesData, historyData] = await Promise.all([
-          agentsRes.json(), tasksRes.json(), schedulesRes.json(), historyRes.json(),
+        const [agentsData, tasksData, schedulesData, historyData, analyticsData] = await Promise.all([
+          agentsRes.json(), tasksRes.json(), schedulesRes.json(), historyRes.json(), analyticsRes.json()
         ]);
+        
         setStats({
           agents:    (agentsData.agents || []).length,
           tasks:     (tasksData.tasks || []).length,
           schedules: (schedulesData.schedules || []).filter(s => s.status === 'active').length,
           runs:      (historyData.history || []).length,
         });
-      } catch (e) { /* stats just stay as dashes */ }
+
+        if (analyticsData && !analyticsData.error) {
+          setAnalytics(analyticsData);
+        }
+      } catch (e) { console.error('Error fetching dashboard stats', e); }
     };
     fetchStats();
   }, []);
+
+  const totalCost = analytics?.totals?.cost || 0;
+  const totalTokens = (analytics?.totals?.promptTokens || 0) + (analytics?.totals?.completionTokens || 0);
 
   const statItems = [
     { label: 'Agents', value: stats.agents, color: LILAC },
     { label: 'Tasks', value: stats.tasks, color: '#8b5cf6' },
     { label: 'Active Schedules', value: stats.schedules, color: '#059669' },
     { label: 'Total Runs', value: stats.runs, color: '#d97706' },
+    { label: 'Total Tokens', value: totalTokens > 0 ? totalTokens.toLocaleString() : '—', color: '#0ea5e9', colSpan: 2 },
+    { label: 'Total API Cost', value: totalCost > 0 ? `$${totalCost.toFixed(4)}` : '—', color: '#10b981', colSpan: 2 },
   ];
 
   return (
@@ -66,15 +78,82 @@ export default function DashboardContent() {
         </div>
 
         {/* Live Stats Bar */}
-        <div className="grid grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-10">
           {statItems.map(s => (
-            <div key={s.label} className="rounded-2xl p-5 text-center transition-all duration-200"
+            <div key={s.label} className={`rounded-2xl p-5 text-center transition-all duration-200 ${s.colSpan ? `col-span-${s.colSpan}` : 'col-span-2'}`}
               style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 6px rgba(181,123,238,0.08)' }}>
-              <div className="text-3xl font-extrabold mb-1" style={{ color: s.color }}>{s.value}</div>
+              <div className="text-3xl font-extrabold mb-1 truncate" style={{ color: s.color }}>{s.value}</div>
               <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED }}>{s.label}</div>
             </div>
           ))}
         </div>
+
+        {/* Analytics Chart */}
+        {analytics && analytics.timeseries && analytics.timeseries.length > 0 && (
+          <div className="mb-10 rounded-2xl p-6" style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 8px rgba(181,123,238,0.08)' }}>
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: TEXT_HEADING }}>
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              Daily API Cost (Last 14 Days)
+            </h3>
+            
+            <div className="h-48 w-full flex items-end gap-2 pb-6 relative border-b" style={{ borderColor: LILAC_BORDER }}>
+              {/* Y-Axis scale label */}
+              <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono">
+                ${Math.max(...analytics.timeseries.map(t => t.daily_cost || 0.0001)).toFixed(4)}
+              </div>
+              <div className="absolute bottom-2 left-0 text-[10px] text-gray-400 font-mono">
+                $0.0000
+              </div>
+              
+              <div className="flex-1 flex items-end justify-between h-full pl-12 pt-4">
+                {(() => {
+                  const maxVal = Math.max(...analytics.timeseries.map(t => t.daily_cost || 0.0001));
+                  // Create full 14 day array filling in missing dates
+                  const dates = [];
+                  for(let i=13; i>=0; i--) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    dates.push(d.toISOString().split('T')[0]);
+                  }
+                  
+                  return dates.map((dateStr, i) => {
+                    const dayData = analytics.timeseries.find(t => t.date === dateStr);
+                    const val = dayData?.daily_cost || 0;
+                    const heightPct = Math.max((val / maxVal) * 100, 2); // 2% minimum height for visibility
+                    
+                    return (
+                      <div key={i} className="flex flex-col items-center flex-1 group">
+                        <div className="w-4/5 rounded-t-sm transition-all duration-300 relative"
+                          style={{ height: `${heightPct}%`, background: `linear-gradient(180deg, #10b981 0%, #34d399 100%)`, opacity: val > 0 ? 1 : 0.3 }}>
+                          <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
+                            ${val.toFixed(4)}
+                          </div>
+                        </div>
+                        <span className="text-[10px] mt-2 text-gray-400 -rotate-45 origin-top-left transform translate-y-2 select-none">
+                          {dateStr.substring(5)}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+            
+            {analytics.byModel && analytics.byModel.length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-xs font-bold mb-3 uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Cost by Model</h4>
+                <div className="flex flex-wrap gap-3">
+                  {analytics.byModel.map(m => (
+                    <div key={m.model_used} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ background: '#f8fafc', border: `1px solid #e2e8f0` }}>
+                      <span className="text-xs font-semibold text-slate-700">{m.model_used}</span>
+                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">${m.cost.toFixed(4)}</span>
+                      <span className="text-[10px] text-slate-400">{m.total_tokens.toLocaleString()} tokens</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

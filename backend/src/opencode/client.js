@@ -8,10 +8,11 @@ const { decrypt } = require('../utils/crypto');
  * dynamically based on the user's selected LLM provider.
  */
 class OpenCodeClient {
-  constructor(apiKey, baseUrl, modelName) {
+  constructor(apiKey, baseUrl, modelName, pricing = { promptCost: 0, completionCost: 0 }) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.modelName = modelName;
+    this.pricing = pricing;
   }
 
   async generate(messages, tools = []) {
@@ -94,7 +95,12 @@ async function getOpenCodeClient(providerName = null) {
     );
   }
 
-  return new OpenCodeClient(apiKey, baseUrl, modelName);
+  const pricing = {
+    promptCost: providerDetails.cost_per_1m_prompt || 0.0,
+    completionCost: providerDetails.cost_per_1m_completion || 0.0
+  };
+
+  return new OpenCodeClient(apiKey, baseUrl, modelName, pricing);
 }
 
 module.exports = { getOpenCodeClient };

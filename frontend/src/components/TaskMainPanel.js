@@ -8,6 +8,66 @@ const card={background:'#fff',border:`1.5px solid ${LB}`,borderRadius:'16px',pad
 const inp={width:'100%',padding:'10px 14px',border:`1.5px solid ${LB}`,borderRadius:'10px',background:'#fff',color:TH,fontSize:'14px'};
 const lbl={display:'block',fontSize:'13px',fontWeight:'600',marginBottom:'8px',color:'#4a3b66'};
 
+const renderHighlightedLog = (text) => {
+  if (!text) return ' ';
+  return text.split('\n').map((line, i) => {
+    if (line.includes('-> Executing Tool [') || line.includes('-> [')) {
+      return (
+        <div key={i} className="my-1.5 p-2 rounded-lg font-mono text-xs flex items-center gap-2" style={{ background: '#f5f3ff', color: '#4c1d95', border: '1px solid #ddd6fe' }}>
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span className="font-bold">Tool Call:</span> {line.replace('-> Executing Tool ', '').replace('-> ', '').replace('🔧 ', '')}
+        </div>
+      );
+    }
+    if (line.includes('<- Tool returned data.') || line.includes('<- Tool returned') || line.includes('<- Result:')) {
+      return (
+        <div key={i} className="text-xs font-semibold mb-2 ml-2 flex items-center gap-1.5" style={{ color: '#059669' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+          Tool completed successfully.
+        </div>
+      );
+    }
+    if (line.includes('OpenCode engine decided') || /⚙️|Engine/.test(line)) {
+      return (
+        <div key={i} className="font-bold mt-3 mb-1 text-xs flex items-center gap-2" style={{ color: '#2563eb' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          {line.replace('⚙️ ', '')}
+        </div>
+      );
+    }
+    if (line.includes('OpenCode Agent started') || line.includes('Agent:')) {
+      return (
+        <div key={i} className="font-bold text-sm mt-4 border-b pb-1 mb-2 flex items-center gap-2" style={{ color: L }}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          {line.replace('🤖 ', '')}
+        </div>
+      );
+    }
+    if (line.includes('Agent Final Output:')) {
+      return (
+        <div key={i} className="font-bold mt-4 mb-1 flex items-center gap-2" style={{ color: '#059669' }}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          {line.replace('✨ ', '')}
+        </div>
+      );
+    }
+    if (line.includes('Handing off to:')) {
+      return (
+        <div key={i} className="my-2 p-2 rounded-lg font-bold text-xs flex items-center gap-2" style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          {line.replace('🤝 ', '')}
+        </div>
+      );
+    }
+    if (line.startsWith('Step ')) {
+      return <div key={i} className="font-bold mt-3" style={{ color: TH }}>{line}</div>;
+    }
+    // Normal lines
+    return <div key={i} style={{ color: '#334155' }}>{line.replace(/[🤖⚙️✅❌⏸🔧🤝✨]/g, '')}</div>;
+  });
+};
+
+
 export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   const [formData, setFormData] = useState({ name:'', description:'', agents:[], workflow_steps:'' });
   const [availableAgents, setAvailableAgents] = useState([]);
@@ -24,9 +84,10 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   const [approvalFeedback, setApprovalFeedback] = useState('');
   const [isDeciding, setIsDeciding] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  const [debugInfo, setDebugInfo] = useState({ prompts: [], toolCalls: [], tokenUsage: 0 });
+  const [debugInfo, setDebugInfo] = useState({ prompts: [], toolCalls: [], tokenUsage: 0, cost: 0.0, modelUsed: '' });
   const elapsedRef = useRef(null);
   const outputRef = useRef(null);
+  const currentTaskIdRef = useRef(null);
 
   // Load available agents from DB
   useEffect(() => {
@@ -45,13 +106,18 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
         agents: selectedTask.agents || [],
         workflow_steps: selectedTask.workflow_steps || '',
       });
-      setRunOutput('');
-      setRunStatus(null);
-      setRunStage('');
-      setElapsed(0);
-      setPendingApproval(null);
-      setApprovalFeedback('');
-      setDebugInfo({ prompts: [], toolCalls: [], tokenUsage: 0 });
+      // Only reset the run output if we actually switched to a different task
+      // Updating the task status (like to 'completed') shouldn't wipe the screen
+      if (selectedTask.id !== currentTaskIdRef.current) {
+        setRunOutput('');
+        setRunStatus(null);
+        setRunStage('');
+        setElapsed(0);
+        setPendingApproval(null);
+        setApprovalFeedback('');
+        setDebugInfo({ prompts: [], toolCalls: [], tokenUsage: 0, cost: 0.0, modelUsed: '' });
+        currentTaskIdRef.current = selectedTask.id;
+      }
     }
   }, [selectedTask]);
 
@@ -254,6 +320,14 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
           } else if (d.status === 'completed') {
             clearInterval(poll);
             setRunOutput(d.output || 'Completed.');
+            if (d.metrics) {
+              setDebugInfo(prev => ({ 
+                ...prev, 
+                tokenUsage: (d.metrics.promptTokens || 0) + (d.metrics.completionTokens || 0), 
+                cost: d.metrics.cost || 0,
+                modelUsed: d.metrics.modelUsed || ''
+              }));
+            }
             finish('completed', 'Completed');
             onTaskUpdate({ ...selectedTask, status: 'completed' });
             setPendingApproval(null);
@@ -261,6 +335,14 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
             clearInterval(poll);
             const finalOutput = d.output ? (d.error ? d.output + '\n\n❌ Error: ' + d.error : d.output) : (d.error || 'Run failed.');
             setRunOutput(finalOutput);
+            if (d.metrics) {
+              setDebugInfo(prev => ({ 
+                ...prev, 
+                tokenUsage: (d.metrics.promptTokens || 0) + (d.metrics.completionTokens || 0), 
+                cost: d.metrics.cost || 0,
+                modelUsed: d.metrics.modelUsed || ''
+              }));
+            }
             finish('failed', 'Failed');
             setPendingApproval(null);
           }
@@ -355,7 +437,10 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                 className="w-4 h-4"
                 style={{ accentColor: L }}
               />
-              <span className="text-xs font-semibold" style={{ color: TM }}>🔧 Debug Mode</span>
+              <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: TM }}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Debug Mode
+              </span>
             </label>
           </div>
           <label style={lbl}>Workflow Steps</label>
@@ -387,11 +472,11 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
                 ) : runStatus === 'awaiting_approval' ? (
-                  <span className="text-yellow-600 text-base animate-pulse">⏸</span>
+                  <svg className="text-yellow-600 animate-pulse w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 ) : runStatus === 'completed' ? (
-                  <span className="text-green-600 text-base">✓</span>
+                  <svg className="text-green-600 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
                 ) : (
-                  <span className="text-red-500 text-base">✕</span>
+                  <svg className="text-red-500 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 )}
                 <div>
                   <p className="text-xs font-bold" style={{
@@ -429,8 +514,9 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
               <div className="px-5 py-4" style={{ background: '#fffbeb', borderTop: '1.5px solid #fcd34d', borderBottom: '1.5px solid #fcd34d' }}>
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
-                    <p className="text-sm font-bold mb-2" style={{ color: '#92400e' }}>
-                      🔔 Approval Required: {pendingApproval.step_description}
+                    <p className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: '#92400e' }}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                      Approval Required: {pendingApproval.step_description}
                     </p>
                     <p className="text-xs mb-3" style={{ color: '#78350f' }}>
                       Review the agent output below and decide whether to continue or reject this workflow.
@@ -447,16 +533,16 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                       <button 
                         onClick={() => handleApprovalDecision('approved')} 
                         disabled={isDeciding}
-                        className="px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
                         style={{ background: '#10b981' }}>
-                        {isDeciding ? 'Processing...' : '✓ Approve & Continue'}
+                        {isDeciding ? 'Processing...' : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg> Approve & Continue</>}
                       </button>
                       <button 
                         onClick={() => handleApprovalDecision('rejected')} 
                         disabled={isDeciding}
-                        className="px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
                         style={{ background: '#ef4444' }}>
-                        {isDeciding ? 'Processing...' : '✕ Reject & Stop'}
+                        {isDeciding ? 'Processing...' : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg> Reject & Stop</>}
                       </button>
                     </div>
                   </div>
@@ -464,11 +550,12 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
               </div>
             )}
 
-            {/* Live log output */}
-            <div ref={outputRef} className="overflow-y-auto p-4" style={{ maxHeight: '260px', background: '#0f0f0f' }}>
-              <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed" style={{ color: '#e2e8f0' }}>
-                {runOutput || ' '}
-              </pre>
+            {/* Live log output - formatted beautifully */}
+            <div ref={outputRef} className="overflow-y-auto p-5" style={{ maxHeight: '350px', background: '#ffffff' }}>
+              <h4 className="text-xs font-bold mb-3" style={{ color: L }}>Live Execution Log:</h4>
+              <div className="text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                {renderHighlightedLog(runOutput)}
+              </div>
             </div>
 
             {/* Final Output — always shown on completion */}
@@ -490,12 +577,15 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                     </svg>
-                    ✅ Final Output
+                    Final Output
                     <button
                       onClick={() => navigator.clipboard.writeText(finalText).then(() => toast.success('Copied to clipboard!'))}
-                      className="ml-auto text-xs px-2 py-1 rounded-lg font-medium hover:opacity-80"
+                      className="ml-auto text-xs px-2 py-1 rounded-lg font-medium hover:opacity-80 flex items-center gap-1.5"
                       style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #86efac' }}
-                    >📋 Copy</button>
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                      Copy
+                    </button>
                   </h3>
                   <div className="p-4 rounded-xl shadow-sm" style={{ background: '#fff', border: '1.5px solid #86efac' }}>
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: '#1a2e1a' }}>
@@ -520,12 +610,21 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                 <div className="space-y-3">
                   {/* Token Usage */}
                   <div className="p-3 rounded-lg" style={{ background: '#fff', border: `1px solid ${LB}` }}>
-                    <p className="text-xs font-semibold mb-1" style={{ color: TH }}>Token Usage</p>
+                    <p className="text-xs font-semibold mb-1" style={{ color: TH }}>Token Usage & Cost</p>
                     <p className="text-xs" style={{ color: TM }}>
-                      Estimated: ~{Math.floor(runOutput.length / 4)} tokens
+                      {debugInfo.tokenUsage > 0 
+                        ? `Actual: ${debugInfo.tokenUsage.toLocaleString()} tokens` 
+                        : `Estimated: ~${Math.floor(runOutput.length / 4)} tokens`}
                       <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full" style={{ background: LL, color: L }}>
-                        ${((runOutput.length / 4) * 0.00001).toFixed(4)}
+                        ${debugInfo.cost > 0 
+                          ? debugInfo.cost.toFixed(4) 
+                          : ((runOutput.length / 4) * 0.00001).toFixed(4)}
                       </span>
+                      {debugInfo.modelUsed && (
+                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full text-gray-500 bg-gray-100 border border-gray-200">
+                          {debugInfo.modelUsed}
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -576,9 +675,10 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
                       </pre>
                       <button 
                         onClick={handleRun}
-                        className="mt-3 px-3 py-1.5 text-xs font-semibold rounded-lg hover:opacity-85"
+                        className="mt-3 px-3 py-1.5 text-xs flex items-center gap-1.5 font-semibold rounded-lg hover:opacity-85"
                         style={{ background: '#991b1b', color: '#fff' }}>
-                        🔄 Retry Workflow
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Retry Workflow
                       </button>
                     </div>
                   )}
@@ -618,16 +718,17 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
             {isSaving ? 'Saving...' : 'Save Task'}
           </button>
           <button type="button" onClick={handleRun} disabled={isRunning || !formData.workflow_steps}
-            className="flex-1 md:flex-none px-6 py-3 font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
+            className="flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-3 font-semibold rounded-xl hover:opacity-85 disabled:opacity-50"
             style={{ background: LL, color: L, border: `1.5px solid ${LB}` }}
             title="Keyboard shortcut: Ctrl+Enter">
-            {isRunning ? 'Running...' : '▶ Run Workflow'}
+            {isRunning ? 'Running...' : <><svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Run Workflow</>}
           </button>
         </div>
         
         {/* Keyboard shortcuts hint */}
-        <div className="text-xs text-center pb-4" style={{ color: TM }}>
-          💡 Tip: Press <kbd className="px-2 py-1 rounded" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Ctrl+S</kbd> to save, 
+        <div className="text-xs text-center pb-4 flex items-center justify-center gap-1" style={{ color: TM }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Tip: Press <kbd className="px-2 py-1 rounded ml-1" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Ctrl+S</kbd> to save, 
           <kbd className="px-2 py-1 rounded ml-1" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Ctrl+Enter</kbd> to run, 
           <kbd className="px-2 py-1 rounded ml-1" style={{ background: LL, color: L, border: `1px solid ${LB}` }}>Esc</kbd> to close modals
         </div>

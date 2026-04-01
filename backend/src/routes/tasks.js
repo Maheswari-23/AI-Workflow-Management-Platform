@@ -207,9 +207,20 @@ router.post('/:id/run', async (req, res) => {
 // GET live output for a run (polling fallback)
 router.get('/:taskId/run/:runId/output', async (req, res) => {
   try {
-    const run = await dbGet('SELECT status, output, error, duration_ms FROM run_history WHERE id = ?', [req.params.runId]);
+    const run = await dbGet('SELECT status, output, error, duration_ms, prompt_tokens, completion_tokens, total_cost, model_used FROM run_history WHERE id = ?', [req.params.runId]);
     if (!run) return res.status(404).json({ error: 'Run not found' });
-    res.json(run);
+    
+    // Map db columns to expected frontend structure
+    const mapped = {
+      ...run,
+      metrics: {
+        promptTokens: run.prompt_tokens,
+        completionTokens: run.completion_tokens,
+        cost: run.total_cost,
+        modelUsed: run.model_used
+      }
+    };
+    res.json(mapped);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

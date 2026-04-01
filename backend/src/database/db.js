@@ -164,6 +164,10 @@ function initializeSchema() {
         started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         completed_at DATETIME,
         duration_ms INTEGER,
+        prompt_tokens INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        total_cost REAL DEFAULT 0.0,
+        model_used TEXT DEFAULT '',
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
       )
     `);
@@ -178,6 +182,8 @@ function initializeSchema() {
         model TEXT DEFAULT '',
         temperature REAL DEFAULT 0.7,
         max_tokens INTEGER DEFAULT 2048,
+        cost_per_1m_prompt REAL DEFAULT 0.0,
+        cost_per_1m_completion REAL DEFAULT 0.0,
         configured INTEGER DEFAULT 0,
         is_default INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -185,16 +191,23 @@ function initializeSchema() {
       )
     `);
 
-    // Migrate: add is_default column if it doesn't exist (for existing DBs)
+    // Migrate: add new columns for existing DBs
     db.run(`ALTER TABLE llm_providers ADD COLUMN is_default INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE llm_providers ADD COLUMN cost_per_1m_prompt REAL DEFAULT 0.0`, () => {});
+    db.run(`ALTER TABLE llm_providers ADD COLUMN cost_per_1m_completion REAL DEFAULT 0.0`, () => {});
+    
+    db.run(`ALTER TABLE run_history ADD COLUMN prompt_tokens INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE run_history ADD COLUMN completion_tokens INTEGER DEFAULT 0`, () => {});
+    db.run(`ALTER TABLE run_history ADD COLUMN total_cost REAL DEFAULT 0.0`, () => {});
+    db.run(`ALTER TABLE run_history ADD COLUMN model_used TEXT DEFAULT ''`, () => {});
 
     // Seed default LLM providers if not exist
     db.run(`
-      INSERT OR IGNORE INTO llm_providers (name, base_url, model) VALUES
-        ('Groq', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile'),
-        ('OpenAI', 'https://api.openai.com/v1', 'gpt-4o'),
-        ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022'),
-        ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-flash')
+      INSERT OR IGNORE INTO llm_providers (name, base_url, model, cost_per_1m_prompt, cost_per_1m_completion) VALUES
+        ('Groq', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile', 0.59, 0.79),
+        ('OpenAI', 'https://api.openai.com/v1', 'gpt-4o', 5.00, 15.00),
+        ('Anthropic', 'https://api.anthropic.com/v1', 'claude-3-5-sonnet-20241022', 3.00, 15.00),
+        ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-flash', 0.075, 0.30)
     `);
 
     // Set Groq as default if no default is set

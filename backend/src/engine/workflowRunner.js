@@ -30,7 +30,7 @@ async function setAgentMemory(agentId, key, value) {
 
 // ─── Single Agent Execution ───────────────────────────────────────────────────
 
-async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '') {
+async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '', metrics = null) {
   const openCodeTools = rawTools.map(t => ({ type: t.type, function: t.function }));
 
   // Load long-term memory for this agent
@@ -60,13 +60,18 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '') 
   agentLog += `Prompt: ${userContent.slice(0, 200)}...\n`;
 
   const responseData = await opencode.generate(messages, openCodeTools);
+  if (metrics && responseData?.usage) {
+    metrics.promptTokens += (responseData.usage.prompt_tokens || 0);
+    metrics.completionTokens += (responseData.usage.completion_tokens || 0);
+  }
+
   if (!responseData?.choices?.[0]) throw new Error(`Agent "${agent.name}" got invalid LLM response`);
 
   let messageOut = responseData.choices[0].message;
   messages.push(messageOut);
 
   if (messageOut.tool_calls?.length > 0) {
-    agentLog += `\n🔧 Tool calls initiated:\n`;
+    agentLog += `\n[Tool calls initiated]\n`;
     for (const toolCall of messageOut.tool_calls) {
       let args = {};
       try { args = JSON.parse(toolCall.function.arguments); } catch(e) {}
@@ -76,6 +81,10 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '') 
       messages.push({ tool_call_id: toolCall.id, role: 'tool', name: toolCall.function.name, content: String(toolResult) });
     }
     const finalPass = await opencode.generate(messages);
+    if (metrics && finalPass?.usage) {
+      metrics.promptTokens += (finalPass.usage.prompt_tokens || 0);
+      metrics.completionTokens += (finalPass.usage.completion_tokens || 0);
+    }
     const finalContent = finalPass?.choices?.[0]?.message?.content || 'No output.';
     agentLog += `\nOutput:\n${finalContent}\n`;
 
@@ -139,6 +148,9 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
   const maxRetries = task.max_retries ?? 2;
   const retryDelay = task.retry_delay_ms ?? 5000;
 
+  // Token and cost tracking
+  const runMetrics = { promptTokens: 0, completionTokens: 0, cost: 0.0, modelUsed: '' };
+
   // Accumulate output in memory, flush to DB every few lines for performance
   let outputBuffer = '';
   let flushTimer = null;
@@ -174,6 +186,7 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
     }
 
     const opencode = await getOpenCodeClient();
+    runMetrics.modelUsed = opencode.modelName || 'Unknown';
     const rawTools = await getDynamicTools();
 
     if (rawTools.length > 0) {
@@ -190,7 +203,7 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
 
     // ── Run agents ────────────────────────────────────────────────────────────
     const runAgentWithEmit = async (agent, prompt, previousOutput = '') => {
-      const result = await runAgent(agent, prompt, opencode, rawTools, previousOutput);
+      const result = await runAgent(agent, prompt, opencode, rawTools, previousOutput, runMetrics);
       for (const line of result.log.split('\n')) await emit(line);
       return result;
     };
@@ -212,21 +225,21 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
         // Check for approval gate BEFORE running agent (except first agent)
         if (i > 0) {
           const prevAgent = agents[i - 1];
-          await emit(`\n⏸ Approval gate before ${agent.name}...`);
+          await emit(`\n[Approval gate] before ${agent.name}...`);
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['awaiting_approval', runId]);
           broadcast('status', { runId, status: 'awaiting_approval', taskId: task.id });
           const approvalId = await createApprovalGate(runId, task.id, task.name, i, `Review output from ${prevAgent.name} before passing to ${agent.name}`, previousOutput);
           await emit(`Waiting for approval (ID: ${approvalId})...`);
           const approval = await waitForApproval(approvalId);
           if (approval.status === 'rejected') {
-            await emit(`\n❌ Rejected. Reason: ${approval.feedback || approval.decision}`);
+            await emit(`\n[Rejected] Reason: ${approval.feedback || approval.decision}`);
             const duration = Date.now() - startTime;
             await dbRun('UPDATE run_history SET status = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['failed', duration, runId]);
             await dbRun('UPDATE tasks SET status = ? WHERE id = ?', ['draft', task.id]);
             broadcast('status', { runId, status: 'failed', taskId: task.id });
             return { id: runId, status: 'failed', duration_ms: duration };
           }
-          await emit(`✅ Approved! Continuing to ${agent.name}...`);
+          await emit(`[Approved!] Continuing to ${agent.name}...`);
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
           // Resume workflow status to 'running' after approval
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['running', runId]);
@@ -255,20 +268,20 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
         await dbRun('UPDATE agents SET status = ? WHERE id = ?', ['offline', agent.id]);
         previousOutput = result.output;
         if (needsApproval && i < steps.length - 1) {
-          await emit('\n⏸ Approval required before next step...');
+          await emit('\n[Approval required] before next step...');
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['awaiting_approval', runId]);
           broadcast('status', { runId, status: 'awaiting_approval', taskId: task.id });
           const approvalId = await createApprovalGate(runId, task.id, task.name, i, `Review step ${i + 1} output`, previousOutput);
           const approval = await waitForApproval(approvalId);
           if (approval.status === 'rejected') {
-            await emit(`\n❌ Rejected at step ${i + 1}. Halting.`);
+            await emit(`\n[Rejected] at step ${i + 1}. Halting.`);
             const duration = Date.now() - startTime;
             await dbRun('UPDATE run_history SET status = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?', ['failed', duration, runId]);
             await dbRun('UPDATE tasks SET status = ? WHERE id = ?', ['draft', task.id]);
             broadcast('status', { runId, status: 'failed', taskId: task.id });
             return { id: runId, status: 'failed', duration_ms: duration };
           }
-          await emit('✅ Approved! Continuing...');
+          await emit('[Approved!] Continuing...');
           if (approval.feedback) previousOutput += `\n\n[Human Feedback]: ${approval.feedback}`;
           // Resume workflow status to 'running' after approval
           await dbRun('UPDATE run_history SET status = ? WHERE id = ?', ['running', runId]);
@@ -282,13 +295,23 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
     await emit(`Duration: ${(duration / 1000).toFixed(2)}s`);
     await flushOutput(); // ensure all output is written
 
-    const finalRun = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
-    await dbRun('UPDATE run_history SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ? WHERE id = ?',
-      ['completed', finalRun.output, duration, runId]);
-    await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', task.id]);
-    broadcast('status', { runId, status: 'completed', taskId: task.id });
+    // Calculate final cost
+    if (opencode.pricing) {
+      const promptCost = (runMetrics.promptTokens / 1_000_000) * opencode.pricing.promptCost;
+      const compCost = (runMetrics.completionTokens / 1_000_000) * opencode.pricing.completionCost;
+      runMetrics.cost = parseFloat((promptCost + compCost).toFixed(6));
+    }
 
-    return { id: runId, status: 'completed', output: finalRun.output, duration_ms: duration };
+    const finalRun = await dbGet('SELECT output FROM run_history WHERE id = ?', [runId]);
+    await dbRun(`UPDATE run_history 
+                 SET status = ?, output = ?, completed_at = CURRENT_TIMESTAMP, duration_ms = ?,
+                     prompt_tokens = ?, completion_tokens = ?, total_cost = ?, model_used = ?
+                 WHERE id = ?`,
+      ['completed', finalRun.output, duration, runMetrics.promptTokens, runMetrics.completionTokens, runMetrics.cost, runMetrics.modelUsed, runId]);
+    await dbRun('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', task.id]);
+    broadcast('status', { runId, status: 'completed', taskId: task.id, metrics: runMetrics });
+
+    return { id: runId, status: 'completed', output: finalRun.output, duration_ms: duration, metrics: runMetrics };
 
   } catch (err) {
     const duration = Date.now() - startTime;
