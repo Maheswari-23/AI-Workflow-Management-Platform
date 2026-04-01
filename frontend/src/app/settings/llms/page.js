@@ -82,20 +82,6 @@ export default function LLMSettingsPage() {
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
         <div className="max-w-7xl mx-auto">
 
-          {/* BYOK Notice */}
-          <div className="rounded-2xl p-5 mb-6" style={{ background: LL, border: `1.5px solid ${LB}` }}>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">🔑</span>
-              <div>
-                <h3 className="text-sm font-bold mb-1" style={{ color: L }}>Bring Your Own Key (BYOK)</h3>
-                <p className="text-xs leading-relaxed" style={{ color: TM }}>
-                  This platform requires you to provide your own API keys. Your keys are encrypted and stored securely. 
-                  The provider marked as "Default" will be used for all task executions.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Providers table */}
           <div className="rounded-2xl overflow-hidden mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
             <table className="min-w-full text-left">
