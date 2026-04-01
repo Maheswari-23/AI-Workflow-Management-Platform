@@ -19,7 +19,7 @@ class OpenCodeClient {
       model: this.modelName,
       messages: messages,
       temperature: 0.3,
-      max_tokens: 2000,
+      max_tokens: 1000,
     };
 
     if (tools && tools.length > 0) {

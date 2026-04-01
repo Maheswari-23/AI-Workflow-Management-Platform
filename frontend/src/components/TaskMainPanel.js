@@ -465,26 +465,46 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
             )}
 
             {/* Live log output */}
-            <div ref={outputRef} className="overflow-y-auto p-4" style={{ maxHeight: '320px', background: '#0f0f0f' }}>
+            <div ref={outputRef} className="overflow-y-auto p-4" style={{ maxHeight: '260px', background: '#0f0f0f' }}>
               <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed" style={{ color: '#e2e8f0' }}>
                 {runOutput || ' '}
               </pre>
             </div>
 
-            {/* Clear Final Output Presentation */}
-            {runStatus === 'completed' && runOutput && (
-              <div className="px-5 py-4" style={{ background: '#f8fafc', borderTop: '1.5px solid #e2e8f0' }}>
-                <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#065f46' }}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                  Final Output
-                </h3>
-                <div className="p-4 rounded-xl shadow-sm" style={{ background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-gray-800">
-                    {runOutput.includes('Output:\n') ? runOutput.split('Output:\n').pop().split('=== Workflow Completed ===')[0].trim() : runOutput}
-                  </pre>
+            {/* Final Output — always shown on completion */}
+            {runStatus === 'completed' && runOutput && (() => {
+              // Extract the most meaningful output section
+              let finalText = runOutput;
+              if (runOutput.includes('=== Final Output ===')) {
+                finalText = runOutput.split('=== Final Output ===').pop().split('=== Workflow Completed ===')[0].trim();
+              } else if (runOutput.includes('Output:\n')) {
+                finalText = runOutput.split('Output:\n').pop().split('=== Workflow Completed ===')[0].trim();
+              } else if (runOutput.includes('\n\n')) {
+                // Take the last substantial paragraph as the answer
+                const paras = runOutput.split('\n\n').filter(p => p.trim().length > 30);
+                if (paras.length > 0) finalText = paras[paras.length - 1].trim();
+              }
+              return (
+                <div className="px-5 py-4" style={{ background: '#f0fdf4', borderTop: '2px solid #86efac' }}>
+                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: '#065f46' }}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                    </svg>
+                    ✅ Final Output
+                    <button
+                      onClick={() => navigator.clipboard.writeText(finalText).then(() => toast.success('Copied to clipboard!'))}
+                      className="ml-auto text-xs px-2 py-1 rounded-lg font-medium hover:opacity-80"
+                      style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #86efac' }}
+                    >📋 Copy</button>
+                  </h3>
+                  <div className="p-4 rounded-xl shadow-sm" style={{ background: '#fff', border: '1.5px solid #86efac' }}>
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: '#1a2e1a' }}>
+                      {finalText}
+                    </pre>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Debug Info Panel */}
             {debugMode && (runStatus === 'completed' || runStatus === 'failed') && (
