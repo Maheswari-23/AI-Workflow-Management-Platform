@@ -14,6 +14,10 @@ RUN npm install --legacy-peer-deps
 # Copy frontend source
 COPY frontend/ ./
 
+# Expose backend URL to build so Next.js rewrites use the internal Docker network
+ARG BACKEND_URL=http://backend:5000
+ENV BACKEND_URL=$BACKEND_URL
+
 # Build Next.js app
 RUN npm run build
 

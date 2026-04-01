@@ -2,10 +2,9 @@
 const nextConfig = {
   env: {
     BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
   },
   async rewrites() {
-    // In Docker: BACKEND_URL = http://backend:5000 (internal network)
-    // Locally:   BACKEND_URL = http://localhost:5000
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     return [
       {
@@ -14,6 +13,10 @@ const nextConfig = {
       },
     ];
   },
+  // Disable x-powered-by header
+  poweredByHeader: false,
+  // Allow external backend
+  experimental: {},
 };
 
 module.exports = nextConfig;
