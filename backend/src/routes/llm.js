@@ -96,7 +96,7 @@ router.post('/test', async (req, res) => {
     // Decrypt the stored key
     const key = provider?.api_key ? decrypt(provider.api_key) : process.env.GROQ_API_KEY;
     const baseUrl = provider?.base_url || 'https://api.groq.com/openai/v1';
-    const model = provider?.model || 'llama-3.3-70b-versatile';
+    const model = provider?.model || 'llama-3.1-8b-instant';
 
     if (!key) return res.status(400).json({ error: 'No API key configured for this provider' });
 
