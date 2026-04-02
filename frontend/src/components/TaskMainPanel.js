@@ -198,6 +198,12 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   };
 
   const handleSave = async () => {
+    // Validate agents are selected
+    if (!formData.agents || formData.agents.length === 0) {
+      toast.error('Please select at least one agent for this task');
+      return;
+    }
+    
     setIsSaving(true);
     try {
       const res = await fetch(`/api/tasks/${selectedTask.id}`, {
@@ -249,6 +255,12 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
   };
 
   const handleRun = async () => {
+    // Validate agents are selected
+    if (!formData.agents || formData.agents.length === 0) {
+      toast.error('Please select at least one agent before running');
+      return;
+    }
+    
     setIsRunning(true);
     setRunOutput('');
     setRunStatus('running');
@@ -399,23 +411,33 @@ export default function TaskMainPanel({ selectedTask, onTaskUpdate }) {
         <div style={card}><label style={lbl}>Task Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} style={inp} /></div>
         <div style={card}><label style={lbl}>Description</label><textarea name="description" rows="4" value={formData.description} onChange={handleChange} placeholder="Describe what this task should accomplish..." style={{ ...inp, resize: 'vertical' }} /></div>
         
-        {/* Agent Assignment */}
+        {/* Agent Assignment - REQUIRED */}
         <div style={card}>
-          <label style={lbl}>Assign Agents {availableAgents.length === 0 && <span style={{ color: TM, fontWeight: 400 }}>(Create agents first)</span>}</label>
+          <label style={lbl}>Assign Agents <span style={{ color: '#ef4444', fontWeight: 700 }}>*</span> {availableAgents.length === 0 && <span style={{ color: TM, fontWeight: 400 }}>(Create agents first)</span>}</label>
           {availableAgents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {availableAgents.map(a => (
-                <label key={a.id} className="flex items-center p-3 rounded-xl cursor-pointer transition-all"
-                  style={formData.agents.includes(String(a.id)) ? { background: LL, border: `1.5px solid ${L}` } : { background: '#fafafa', border: `1.5px solid ${LB}` }}>
-                  <input type="checkbox" checked={formData.agents.includes(String(a.id))} onChange={() => toggleAgent(String(a.id))}
-                    className="w-4 h-4 mr-3" style={{ accentColor: L }} />
-                  <div>
-                    <span className="block text-sm font-medium" style={{ color: TH }}>{a.name}</span>
-                    <span className="block text-xs capitalize" style={{ color: TM }}>{a.status}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {availableAgents.map(a => (
+                  <label key={a.id} className="flex items-center p-3 rounded-xl cursor-pointer transition-all"
+                    style={formData.agents.includes(String(a.id)) ? { background: LL, border: `1.5px solid ${L}` } : { background: '#fafafa', border: `1.5px solid ${LB}` }}>
+                    <input type="checkbox" checked={formData.agents.includes(String(a.id))} onChange={() => toggleAgent(String(a.id))}
+                      className="w-4 h-4 mr-3" style={{ accentColor: L }} />
+                    <div>
+                      <span className="block text-sm font-medium" style={{ color: TH }}>{a.name}</span>
+                      <span className="block text-xs capitalize" style={{ color: TM }}>{a.status}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {formData.agents.length === 0 && (
+                <div className="mt-3 p-3 rounded-lg flex items-center gap-2" style={{ background: '#fef2f2', border: '1.5px solid #fecaca' }}>
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#991b1b' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span className="text-xs font-medium" style={{ color: '#991b1b' }}>At least one agent is required</span>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm" style={{ color: TM }}>No agents created yet. Create agents in the <a href="/agents" style={{ color: L }}>Agents section</a>.</p>
           )}
