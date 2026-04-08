@@ -94,12 +94,18 @@ export default function CostPage() {
     for (let i = 13; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const yearStr = date.getFullYear();
+      const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
       
       const dayTasks = tasks.filter(t => {
         if (t.status !== 'completed') return false;
-        const taskDate = new Date(t.updated_at).toISOString().split('T')[0];
-        return taskDate === dateStr;
+        const tDate = new Date(t.updated_at);
+        const tYear = tDate.getFullYear();
+        const tMonth = String(tDate.getMonth() + 1).padStart(2, '0');
+        const tDay = String(tDate.getDate()).padStart(2, '0');
+        return `${tYear}-${tMonth}-${tDay}` === dateStr;
       });
       
       const dayCost = dayTasks.reduce((sum, task) => {

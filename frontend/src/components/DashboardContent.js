@@ -123,10 +123,15 @@ export default function DashboardContent() {
                 
                 <div className="flex-1 flex items-end justify-between h-full pl-12 pt-4">
                   {(() => {
+                    const today = new Date();
                     const dates = [];
                     for(let i=13; i>=0; i--) {
-                      const d = new Date(); d.setDate(d.getDate() - i);
-                      dates.push(d.toISOString().split('T')[0]);
+                      const d = new Date(today);
+                      d.setDate(d.getDate() - i);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      dates.push(`${year}-${month}-${day}`);
                     }
                     
                     return dates.map((dateStr, i) => {
@@ -140,7 +145,8 @@ export default function DashboardContent() {
                             style={{ 
                               height: `${heightPct}%`, 
                               background: showCost ? `linear-gradient(180deg, #10b981 0%, #34d399 100%)` : `linear-gradient(180deg, #b57bee 0%, #d8b4fe 100%)`, 
-                              opacity: val > 0 ? 1 : 0.3 
+                              opacity: val > 0 ? 1 : 0.3,
+                              minHeight: val > 0 ? '4px' : '2px'
                             }}>
                             <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
                               {unitPrefix}{val.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}
