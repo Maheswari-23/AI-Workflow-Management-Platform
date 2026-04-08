@@ -112,16 +112,16 @@ export default function DashboardContent() {
                 {chartTitle}
               </h3>
               
-              <div className="h-48 w-full flex items-end gap-2 pb-6 relative border-b" style={{ borderColor: LILAC_BORDER }}>
+              <div className="h-64 w-full flex items-end gap-2 pb-8 relative border-b" style={{ borderColor: LILAC_BORDER }}>
                 {/* Y-Axis scale label */}
-                <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono">
+                <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono bg-white pr-1 z-10">
                   {unitPrefix}{maxVal.toFixed(precision)}
                 </div>
-                <div className="absolute bottom-2 left-0 text-[10px] text-gray-400 font-mono">
+                <div className="absolute bottom-4 left-0 text-[10px] text-gray-400 font-mono bg-white pr-1 z-10">
                   {unitPrefix}{(0).toFixed(precision)}
                 </div>
                 
-                <div className="flex-1 flex items-end justify-between h-full pl-12 pt-4">
+                <div className="flex-1 flex items-end justify-between h-full pl-16 pt-4">
                   {(() => {
                     const today = new Date();
                     const dates = [];
@@ -140,7 +140,7 @@ export default function DashboardContent() {
                       const heightPct = Math.max((val / maxVal) * 100, 2);
                       
                       return (
-                        <div key={i} className="flex flex-col items-center flex-1 group">
+                        <div key={i} className="flex flex-col items-center flex-1 group h-full justify-end">
                           <div className="w-4/5 rounded-t-sm transition-all duration-300 relative"
                             style={{ 
                               height: `${heightPct}%`, 
