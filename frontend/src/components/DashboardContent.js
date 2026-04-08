@@ -1,6 +1,8 @@
-'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
 
 const LILAC = '#b57bee';
 const LILAC_LIGHT = '#f3e8ff';
@@ -112,54 +114,76 @@ export default function DashboardContent() {
                 {chartTitle}
               </h3>
               
-              <div className="h-64 w-full flex items-end gap-2 pb-8 relative border-b" style={{ borderColor: LILAC_BORDER }}>
-                {/* Y-Axis scale label */}
-                <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono bg-white pr-1 z-10">
-                  {unitPrefix}{maxVal.toFixed(precision)}
-                </div>
-                <div className="absolute bottom-4 left-0 text-[10px] text-gray-400 font-mono bg-white pr-1 z-10">
-                  {unitPrefix}{(0).toFixed(precision)}
-                </div>
-                
-                <div className="flex-1 flex items-end justify-between h-full pl-16 pt-4">
-                  {(() => {
-                    const today = new Date();
-                    const dates = [];
-                    for(let i=13; i>=0; i--) {
-                      const d = new Date(today);
-                      d.setDate(d.getDate() - i);
-                      const year = d.getFullYear();
-                      const month = String(d.getMonth() + 1).padStart(2, '0');
-                      const day = String(d.getDate()).padStart(2, '0');
-                      dates.push(`${year}-${month}-${day}`);
-                    }
+              <div className="h-64 w-full relative mb-4">
+                {(() => {
+                  // Create full 14 day array filling in missing dates
+                  const today = new Date();
+                  const data = [];
+                  for(let i=13; i>=0; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
                     
-                    return dates.map((dateStr, i) => {
-                      const dayData = analytics.timeseries.find(t => t.date === dateStr);
-                      const val = showCost ? (dayData?.daily_cost || 0) : (dayData?.daily_tokens || 0);
-                      const heightPct = Math.max((val / maxVal) * 100, 2);
-                      
-                      return (
-                        <div key={i} className="flex flex-col items-center flex-1 group h-full justify-end">
-                          <div className="w-4/5 rounded-t-sm transition-all duration-300 relative"
-                            style={{ 
-                              height: `${heightPct}%`, 
-                              background: showCost ? `linear-gradient(180deg, #10b981 0%, #34d399 100%)` : `linear-gradient(180deg, #b57bee 0%, #d8b4fe 100%)`, 
-                              opacity: val > 0 ? 1 : 0.3,
-                              minHeight: val > 0 ? '4px' : '2px'
-                            }}>
-                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
-                              {unitPrefix}{val.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}
-                            </div>
-                          </div>
-                          <span className="text-[10px] mt-2 text-gray-400 -rotate-45 origin-top-left transform translate-y-2 select-none">
-                            {dateStr.substring(5)}
-                          </span>
-                        </div>
-                      );
+                    const dayData = analytics.timeseries.find(t => t.date === dateStr);
+                    data.push({
+                      date: dateStr.substring(5), // MM-DD for display
+                      val: showCost ? (dayData?.daily_cost || 0) : (dayData?.daily_tokens || 0),
+                      fullValue: showCost ? (dayData?.daily_cost || 0) : (dayData?.daily_tokens || 0)
                     });
-                  })()}
-                </div>
+                  }
+
+                  const color = showCost ? '#10b981' : '#b57bee';
+                  const gradientId = showCost ? 'colorCost' : 'colorTokens';
+
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={color} stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={LILAC_BORDER} opacity={0.5} />
+                        <XAxis 
+                          dataKey="date" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: TEXT_MUTED, fontSize: 10 }}
+                          minTickGap={20}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: TEXT_MUTED, fontSize: 10 }}
+                          tickFormatter={(v) => `${unitPrefix}${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v}`}
+                        />
+                        <Tooltip
+                          contentStyle={{ 
+                            background: '#fff', 
+                            border: `1.5px solid ${LILAC_BORDER}`,
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            fontSize: '12px'
+                          }}
+                          formatter={(v) => [`${unitPrefix}${v.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}`, showCost ? 'Cost' : 'Tokens']}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="val" 
+                          stroke={color} 
+                          strokeWidth={3}
+                          fillOpacity={1} 
+                          fill={`url(#${gradientId})`} 
+                          animationDuration={1500}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </div>
               
               {analytics.byModel && analytics.byModel.length > 0 && (
