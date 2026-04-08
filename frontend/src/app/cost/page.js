@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { AreaChart as LineChart, Area as Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
