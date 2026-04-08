@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -84,6 +85,45 @@ export default function CostPage() {
     acc[monthKey].push(task);
     return acc;
   }, {});
+
+  // Generate daily cost data for the last 14 days
+  const generateDailyCostData = () => {
+    const data = [];
+    const today = new Date();
+    
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayTasks = tasks.filter(t => {
+        if (t.status !== 'completed') return false;
+        const taskDate = new Date(t.updated_at).toISOString().split('T')[0];
+        return taskDate === dateStr;
+      });
+      
+      const dayCost = dayTasks.reduce((sum, task) => {
+        const stepsLength = (task.workflow_steps || '').length;
+        const descLength = (task.description || '').length;
+        const tokens = Math.floor((stepsLength + descLength) / 4);
+        const inputTokens = Math.floor(tokens * 0.6);
+        const outputTokens = Math.floor(tokens * 0.4);
+        const inputCost = (inputTokens / 1000) * 0.01;
+        const outputCost = (outputTokens / 1000) * 0.03;
+        return sum + inputCost + outputCost;
+      }, 0);
+      
+      data.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        cost: parseFloat(dayCost.toFixed(2)),
+        fullDate: dateStr
+      });
+    }
+    
+    return data;
+  };
+
+  const dailyCostData = generateDailyCostData();
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
@@ -216,6 +256,49 @@ export default function CostPage() {
                     }}
                   />
                 </div>
+              </div>
+
+              {/* Daily Cost Chart */}
+              <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+                <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>📊 Daily API Cost (Last 14 Days)</h3>
+                {dailyCostData.every(d => d.cost === 0) ? (
+                  <div className="text-center py-12" style={{ color: TM }}>
+                    <p className="text-sm">No cost data available yet</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={LB} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke={TM}
+                        style={{ fontSize: '12px' }}
+                      />
+                      <YAxis 
+                        stroke={TM}
+                        style={{ fontSize: '12px' }}
+                        label={{ value: 'Cost ($)', angle: -90, position: 'insideLeft' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: '#fff', 
+                          border: `1.5px solid ${LB}`,
+                          borderRadius: '8px'
+                        }}
+                        formatter={(value) => `$${value.toFixed(2)}`}
+                        labelStyle={{ color: TH }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="cost" 
+                        stroke={L} 
+                        strokeWidth={2}
+                        dot={{ fill: L, r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
 
               {/* Cost Breakdown by Month */}
