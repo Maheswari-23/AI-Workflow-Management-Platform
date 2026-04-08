@@ -116,6 +116,10 @@ export default function CostPage() {
       data.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         cost: parseFloat(dayCost.toFixed(2)),
+        tokens: dayTasks.reduce((sum, task) => {
+          const tokens = Math.floor(((task.workflow_steps || '').length + (task.description || '').length) / 4);
+          return sum + tokens;
+        }, 0),
         fullDate: dateStr
       });
     }
@@ -259,47 +263,56 @@ export default function CostPage() {
               </div>
 
               {/* Daily Cost Chart */}
-              <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>📊 Daily API Cost (Last 14 Days)</h3>
-                {dailyCostData.every(d => d.cost === 0) ? (
-                  <div className="text-center py-12" style={{ color: TM }}>
-                    <p className="text-sm">No cost data available yet</p>
+              {(() => {
+                const maxCost = Math.max(...dailyCostData.map(d => d.cost || 0));
+                const maxTokens = Math.max(...dailyCostData.map(d => d.tokens || 0));
+                
+                if (maxCost === 0 && maxTokens === 0) return null;
+
+                const showCost = maxCost > 0;
+                const chartTitle = showCost ? '📊 Daily API Cost (Last 14 Days)' : '📊 Daily Token Usage (Last 14 Days)';
+                const dataKey = showCost ? 'cost' : 'tokens';
+                const unit = showCost ? '$' : '';
+                const precision = showCost ? 2 : 0;
+
+                return (
+                  <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
+                    <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>{chartTitle}</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={LB} />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke={TM}
+                          style={{ fontSize: '12px' }}
+                        />
+                        <YAxis 
+                          stroke={TM}
+                          style={{ fontSize: '12px' }}
+                          label={{ value: showCost ? 'Cost ($)' : 'Tokens', angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            background: '#fff', 
+                            border: `1.5px solid ${LB}`,
+                            borderRadius: '8px'
+                          }}
+                          formatter={(value) => `${unit}${value.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}`}
+                          labelStyle={{ color: TH }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey={dataKey} 
+                          stroke={L} 
+                          strokeWidth={2}
+                          dot={{ fill: L, r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={LB} />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke={TM}
-                        style={{ fontSize: '12px' }}
-                      />
-                      <YAxis 
-                        stroke={TM}
-                        style={{ fontSize: '12px' }}
-                        label={{ value: 'Cost ($)', angle: -90, position: 'insideLeft' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          background: '#fff', 
-                          border: `1.5px solid ${LB}`,
-                          borderRadius: '8px'
-                        }}
-                        formatter={(value) => `$${value.toFixed(2)}`}
-                        labelStyle={{ color: TH }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="cost" 
-                        stroke={L} 
-                        strokeWidth={2}
-                        dot={{ fill: L, r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Cost Breakdown by Month */}
               <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
