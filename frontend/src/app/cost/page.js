@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart as LineChart, Area as Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
 
@@ -291,31 +291,37 @@ export default function CostPage() {
                     </h3>
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={LB} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={LB} opacity={0.5} />
                         <XAxis 
                           dataKey="date" 
                           stroke={TM}
+                          axisLine={false}
+                          tickLine={false}
                           style={{ fontSize: '12px' }}
                         />
                         <YAxis 
                           stroke={TM}
+                          axisLine={false}
+                          tickLine={false}
                           style={{ fontSize: '12px' }}
-                          label={{ value: showCost ? 'Cost ($)' : 'Tokens', angle: -90, position: 'insideLeft' }}
+                          tickFormatter={(v) => `${unit}${v >= 1000 ? (v/1000).toLocaleString() : v}`}
                         />
                         <Tooltip 
                           contentStyle={{ 
                             background: '#fff', 
                             border: `1.5px solid ${LB}`,
-                            borderRadius: '8px'
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            fontSize: '12px'
                           }}
-                          formatter={(value) => `${unit}${value.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}`}
-                          labelStyle={{ color: TH }}
+                          formatter={(value) => [`${unit}${value.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}`, showCost ? 'Cost' : 'Tokens']}
+                          labelStyle={{ color: TH, fontWeight: 'bold' }}
                         />
                         <Line 
                           type="monotone" 
                           dataKey={dataKey} 
                           stroke={L} 
-                          strokeWidth={2}
+                          strokeWidth={3}
                           dot={{ fill: L, r: 4 }}
                           activeDot={{ r: 6 }}
                         />

@@ -110,7 +110,7 @@ export default function DashboardContent() {
           return (
             <div className="mb-10 rounded-2xl p-6" style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 8px rgba(181,123,238,0.08)' }}>
               <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: TEXT_HEADING }}>
-                <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                 {chartTitle}
               </h3>
               
@@ -135,8 +135,8 @@ export default function DashboardContent() {
                     });
                   }
 
-                  const color = showCost ? '#10b981' : '#b57bee';
-                  const gradientId = showCost ? 'colorCost' : 'colorTokens';
+                  const color = LILAC;
+                  const gradientId = 'colorAnalytics';
 
                   return (
                     <ResponsiveContainer width="100%" height="100%">
