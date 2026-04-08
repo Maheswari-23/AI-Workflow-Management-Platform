@@ -219,6 +219,12 @@ function initializeSchema() {
     db.run(`UPDATE llm_providers SET model = 'gpt-4o' WHERE name = 'OpenAI' AND model = ''`);
     db.run(`UPDATE llm_providers SET model = 'claude-3-5-sonnet-20241022' WHERE name = 'Anthropic' AND model = ''`);
 
+    // Ensure pricing is set for existing default providers if currently zero
+    db.run(`UPDATE llm_providers SET cost_per_1m_prompt = 0.59, cost_per_1m_completion = 0.79 WHERE name = 'Groq' AND cost_per_1m_prompt = 0.0`);
+    db.run(`UPDATE llm_providers SET cost_per_1m_prompt = 0.075, cost_per_1m_completion = 0.30 WHERE name = 'Gemini' AND cost_per_1m_prompt = 0.0`);
+    db.run(`UPDATE llm_providers SET cost_per_1m_prompt = 5.00, cost_per_1m_completion = 15.00 WHERE name = 'OpenAI' AND cost_per_1m_prompt = 0.0`);
+    db.run(`UPDATE llm_providers SET cost_per_1m_prompt = 3.00, cost_per_1m_completion = 15.00 WHERE name = 'Anthropic' AND cost_per_1m_prompt = 0.0`);
+
     // Seed built-in tools
     const builtinTools = [
       // Utility

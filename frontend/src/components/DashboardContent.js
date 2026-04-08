@@ -89,71 +89,90 @@ export default function DashboardContent() {
         </div>
 
         {/* Analytics Chart */}
-        {analytics && analytics.timeseries && analytics.timeseries.length > 0 && (
-          <div className="mb-10 rounded-2xl p-6" style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 8px rgba(181,123,238,0.08)' }}>
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: TEXT_HEADING }}>
-              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-              Daily API Cost (Last 14 Days)
-            </h3>
-            
-            <div className="h-48 w-full flex items-end gap-2 pb-6 relative border-b" style={{ borderColor: LILAC_BORDER }}>
-              {/* Y-Axis scale label */}
-              <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono">
-                ${Math.max(...analytics.timeseries.map(t => t.daily_cost || 0.0001)).toFixed(4)}
-              </div>
-              <div className="absolute bottom-2 left-0 text-[10px] text-gray-400 font-mono">
-                $0.0000
-              </div>
+        {(() => {
+          if (!analytics || !analytics.timeseries || analytics.timeseries.length === 0) return null;
+          
+          const maxCost = Math.max(...analytics.timeseries.map(t => t.daily_cost || 0));
+          const maxTokens = Math.max(...analytics.timeseries.map(t => t.daily_tokens || 0));
+          
+          // Hide completely if NO data at all
+          if (maxCost === 0 && maxTokens === 0) return null;
+
+          // Decision: Show cost if any cost > 0, otherwise show tokens
+          const showCost = maxCost > 0;
+          const maxVal = showCost ? Math.max(maxCost, 0.0001) : Math.max(maxTokens, 1);
+          const chartTitle = showCost ? 'Daily API Cost (Last 14 Days)' : 'Daily Token Usage (Last 14 Days)';
+          const unitPrefix = showCost ? '$' : '';
+          const precision = showCost ? 4 : 0;
+
+          return (
+            <div className="mb-10 rounded-2xl p-6" style={{ background: '#fff', border: `1.5px solid ${LILAC_BORDER}`, boxShadow: '0 1px 8px rgba(181,123,238,0.08)' }}>
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: TEXT_HEADING }}>
+                <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                {chartTitle}
+              </h3>
               
-              <div className="flex-1 flex items-end justify-between h-full pl-12 pt-4">
-                {(() => {
-                  const maxVal = Math.max(...analytics.timeseries.map(t => t.daily_cost || 0.0001));
-                  // Create full 14 day array filling in missing dates
-                  const dates = [];
-                  for(let i=13; i>=0; i--) {
-                    const d = new Date(); d.setDate(d.getDate() - i);
-                    dates.push(d.toISOString().split('T')[0]);
-                  }
-                  
-                  return dates.map((dateStr, i) => {
-                    const dayData = analytics.timeseries.find(t => t.date === dateStr);
-                    const val = dayData?.daily_cost || 0;
-                    const heightPct = Math.max((val / maxVal) * 100, 2); // 2% minimum height for visibility
+              <div className="h-48 w-full flex items-end gap-2 pb-6 relative border-b" style={{ borderColor: LILAC_BORDER }}>
+                {/* Y-Axis scale label */}
+                <div className="absolute top-0 left-0 text-[10px] text-gray-400 font-mono">
+                  {unitPrefix}{maxVal.toFixed(precision)}
+                </div>
+                <div className="absolute bottom-2 left-0 text-[10px] text-gray-400 font-mono">
+                  {unitPrefix}{(0).toFixed(precision)}
+                </div>
+                
+                <div className="flex-1 flex items-end justify-between h-full pl-12 pt-4">
+                  {(() => {
+                    const dates = [];
+                    for(let i=13; i>=0; i--) {
+                      const d = new Date(); d.setDate(d.getDate() - i);
+                      dates.push(d.toISOString().split('T')[0]);
+                    }
                     
-                    return (
-                      <div key={i} className="flex flex-col items-center flex-1 group">
-                        <div className="w-4/5 rounded-t-sm transition-all duration-300 relative"
-                          style={{ height: `${heightPct}%`, background: `linear-gradient(180deg, #10b981 0%, #34d399 100%)`, opacity: val > 0 ? 1 : 0.3 }}>
-                          <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
-                            ${val.toFixed(4)}
+                    return dates.map((dateStr, i) => {
+                      const dayData = analytics.timeseries.find(t => t.date === dateStr);
+                      const val = showCost ? (dayData?.daily_cost || 0) : (dayData?.daily_tokens || 0);
+                      const heightPct = Math.max((val / maxVal) * 100, 2);
+                      
+                      return (
+                        <div key={i} className="flex flex-col items-center flex-1 group">
+                          <div className="w-4/5 rounded-t-sm transition-all duration-300 relative"
+                            style={{ 
+                              height: `${heightPct}%`, 
+                              background: showCost ? `linear-gradient(180deg, #10b981 0%, #34d399 100%)` : `linear-gradient(180deg, #b57bee 0%, #d8b4fe 100%)`, 
+                              opacity: val > 0 ? 1 : 0.3 
+                            }}>
+                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
+                              {unitPrefix}{val.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}
+                            </div>
                           </div>
+                          <span className="text-[10px] mt-2 text-gray-400 -rotate-45 origin-top-left transform translate-y-2 select-none">
+                            {dateStr.substring(5)}
+                          </span>
                         </div>
-                        <span className="text-[10px] mt-2 text-gray-400 -rotate-45 origin-top-left transform translate-y-2 select-none">
-                          {dateStr.substring(5)}
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-            
-            {analytics.byModel && analytics.byModel.length > 0 && (
-              <div className="mt-8">
-                <h4 className="text-xs font-bold mb-3 uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Cost by Model</h4>
-                <div className="flex flex-wrap gap-3">
-                  {analytics.byModel.map(m => (
-                    <div key={m.model_used} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ background: '#f8fafc', border: `1px solid #e2e8f0` }}>
-                      <span className="text-xs font-semibold text-slate-700">{m.model_used}</span>
-                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">${m.cost.toFixed(4)}</span>
-                      <span className="text-[10px] text-slate-400">{m.total_tokens.toLocaleString()} tokens</span>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+              
+              {analytics.byModel && analytics.byModel.length > 0 && (
+                <div className="mt-8">
+                  <h4 className="text-xs font-bold mb-3 uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Details by Model</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {analytics.byModel.map(m => (
+                      <div key={m.model_used} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ background: '#f8fafc', border: `1px solid #e2e8f0` }}>
+                        <span className="text-xs font-semibold text-slate-700">{m.model_used}</span>
+                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">${m.cost.toFixed(4)}</span>
+                        <span className="text-[10px] text-slate-400">{m.total_tokens.toLocaleString()} tokens</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
