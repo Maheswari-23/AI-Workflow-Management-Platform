@@ -276,14 +276,19 @@ export default function CostPage() {
                 if (maxCost === 0 && maxTokens === 0) return null;
 
                 const showCost = maxCost > 0;
-                const chartTitle = showCost ? '📊 Daily API Cost (Last 14 Days)' : '📊 Daily Token Usage (Last 14 Days)';
+                const chartTitle = showCost ? 'Daily API Cost (Last 14 Days)' : 'Daily Token Usage (Last 14 Days)';
                 const dataKey = showCost ? 'cost' : 'tokens';
                 const unit = showCost ? '$' : '';
                 const precision = showCost ? 2 : 0;
 
                 return (
-                  <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                    <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>{chartTitle}</h3>
+                  <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}`, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+                    <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: TH }}>
+                      <svg className={`w-5 h-5 ${showCost ? 'text-emerald-500' : 'text-purple-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      {chartTitle}
+                    </h3>
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={LB} />
