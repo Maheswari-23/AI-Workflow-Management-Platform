@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:venv\" \"npm run dev:frontend\"",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:venv": "cd backend && .venv\\Scripts\\uvicorn main:app --reload",
+    "dev:venv": "cd backend && .venv\\Scripts\\uvicorn main:app --reload --port 5000",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && .venv\\Scripts\\pip install -r requirements.txt"
   },
   "devDependencies": {
