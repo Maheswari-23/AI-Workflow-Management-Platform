@@ -1,15 +1,33 @@
 {
   "name": "orchestr",
   "version": "1.0.0",
-  "description": "Orchestr - AI Workflow Platform for multi-agent automation using CrewAI",
+  "description": "Orchestr - AI Workflow Platform for multi-agent automation",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:venv\" \"npm run dev:frontend\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:venv": "cd backend && .venv\\Scripts\\uvicorn main:app --reload --port 5000",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && .venv\\Scripts\\pip install -r requirements.txt"
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "deploy:check": "bash scripts/deploy-check.sh",
+    "docker:build": "docker-compose -f docker-compose.prod.yml build",
+    "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "docker:build-task-runner": "docker build -t orchestr-task-runner:latest -f containers/task-runner.dockerfile .",
+    "docker:test-task": "docker run --rm orchestr-task-runner:latest",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:logs": "pm2 logs"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
     "concurrently": "^8.2.2"
   }
 }

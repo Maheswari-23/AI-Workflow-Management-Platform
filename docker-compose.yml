@@ -1,0 +1,67 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: orchestr-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - DB_PATH=/app/data/workflow.db
+      - CORS_ORIGIN=http://localhost:3000
+      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - USE_DOCKER_EXECUTION=true
+      - MAX_CONCURRENT_TASKS=5
+      - TASK_TIMEOUT=300000
+    volumes:
+      - orchestr_data:/app/data
+      # Mount Docker socket so backend can spawn task containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - orchestr-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: orchestr-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Use internal Docker network name so frontend → backend works inside containers
+      - BACKEND_URL=http://backend:5000
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - orchestr-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  orchestr-network:
+    driver: bridge
+
+volumes:
+  orchestr_data:
+    driver: local

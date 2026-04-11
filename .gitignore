@@ -54,11 +54,3 @@ Thumbs.db
 # Build outputs
 dist/
 build/
-
-# Python
-__pycache__/
-*.py[cod]
-*.class
-.venv/
-venv/
-.env

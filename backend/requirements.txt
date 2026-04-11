@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-crewai
-langchain
-sqlalchemy
-python-dotenv
-pydantic
-sse-starlette
