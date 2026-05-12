@@ -229,17 +229,8 @@ function initializeSchema() {
     const builtinTools = [
       // Utility
       ['get_current_time',   'system',  'Get current date, time, timezone and unix timestamp.',                          '', 'GET'],
-      ['generate_uuid',      'system',  'Generate a random UUID v4.',                                                    '', 'GET'],
       ['calculator',         'system',  'Evaluate a math expression e.g. "2 * (5 + 3)".',                               '', 'GET'],
-      ['log',                'system',  'Log a message to workflow output.',                                             '', 'GET'],
-      ['random_number',      'system',  'Generate a random integer between min and max.',                                '', 'GET'],
       ['format_date',        'system',  'Format a date or get current date in multiple formats.',                        '', 'GET'],
-      ['count_words',        'system',  'Count words, characters and sentences in text.',                                '', 'GET'],
-      ['base64_encode',      'system',  'Encode text to base64.',                                                        '', 'GET'],
-      ['base64_decode',      'system',  'Decode a base64 string to text.',                                               '', 'GET'],
-      ['string_replace',     'system',  'Replace all occurrences of a substring in text.',                               '', 'GET'],
-      ['string_upper',       'system',  'Convert text to uppercase.',                                                    '', 'GET'],
-      ['string_lower',       'system',  'Convert text to lowercase.',                                                    '', 'GET'],
       ['parse_json',         'system',  'Parse a JSON string and optionally extract a field.',                           '', 'GET'],
       // File system
       ['read_file',          'fs',      'Read the contents of a file from the server.',                                  '', 'GET'],

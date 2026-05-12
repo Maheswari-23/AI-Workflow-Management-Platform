@@ -5,17 +5,8 @@ const { dbAll } = require('../database/db');
 const TOOL_SCHEMAS = {
   // Utility
   get_current_time:  { props: {}, req: [], desc: 'Get the current date, time, timezone and unix timestamp.' },
-  generate_uuid:     { props: {}, req: [], desc: 'Generate a random UUID v4.' },
   calculator:        { props: { expression: { type:'string', description:'Math expression e.g. "2 * (5 + 3)"' } }, req: ['expression'], desc: 'Evaluate a math expression.' },
-  log:               { props: { message: { type:'string', description:'Message to log' } }, req: ['message'], desc: 'Log a message to workflow output.' },
-  random_number:     { props: { min: { type:'number', description:'Min value (default 1)' }, max: { type:'number', description:'Max value (default 100)' } }, req: [], desc: 'Generate a random integer between min and max.' },
   format_date:       { props: { date: { type:'string', description:'Date string to format. Leave empty for now.' } }, req: [], desc: 'Format a date or get current date in multiple formats.' },
-  count_words:       { props: { text: { type:'string', description:'Text to analyze' } }, req: ['text'], desc: 'Count words, characters and sentences in text.' },
-  base64_encode:     { props: { text: { type:'string', description:'Text to encode' } }, req: ['text'], desc: 'Encode text to base64.' },
-  base64_decode:     { props: { encoded: { type:'string', description:'Base64 string to decode' } }, req: ['encoded'], desc: 'Decode a base64 string to text.' },
-  string_replace:    { props: { text: { type:'string', description:'Original text' }, find: { type:'string', description:'Substring to find' }, replace_with: { type:'string', description:'Replacement string' } }, req: ['text','find','replace_with'], desc: 'Replace all occurrences of a substring in text.' },
-  string_upper:      { props: { text: { type:'string', description:'Text to uppercase' } }, req: ['text'], desc: 'Convert text to uppercase.' },
-  string_lower:      { props: { text: { type:'string', description:'Text to lowercase' } }, req: ['text'], desc: 'Convert text to lowercase.' },
   parse_json:        { props: { json_string: { type:'string', description:'JSON string to parse' }, field: { type:'string', description:'Optional dot-notation field e.g. "user.name"' } }, req: ['json_string'], desc: 'Parse a JSON string and optionally extract a field.' },
 
   // File system
@@ -92,39 +83,14 @@ async function executeTool(toolName, args, dynamicToolsList) {
     if (toolName === 'get_current_time') {
       return JSON.stringify({ time: new Date().toISOString(), local_time: new Date().toLocaleString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, unix_timestamp: Math.floor(Date.now() / 1000) });
     }
-    if (toolName === 'generate_uuid') {
-      const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); });
-      return JSON.stringify({ uuid });
-    }
     if (toolName === 'calculator') {
       try { return JSON.stringify({ expression: args.expression, result: new Function(`return (${args.expression})`)() }); }
       catch(e) { return JSON.stringify({ error: 'Invalid expression: ' + e.message }); }
-    }
-    if (toolName === 'log') {
-      const msg = args.message || JSON.stringify(args);
-      console.log('[Tool:log]', msg);
-      return JSON.stringify({ logged: true, message: msg });
-    }
-    if (toolName === 'random_number') {
-      const min = Number(args.min ?? 1), max = Number(args.max ?? 100);
-      return JSON.stringify({ value: Math.floor(Math.random() * (max - min + 1)) + min, min, max });
     }
     if (toolName === 'format_date') {
       const d = args.date ? new Date(args.date) : new Date();
       return JSON.stringify({ iso: d.toISOString(), local: d.toLocaleString(), date_only: d.toISOString().split('T')[0], time_only: d.toTimeString().split(' ')[0], unix: Math.floor(d.getTime()/1000), day_of_week: d.toLocaleDateString('en-US',{weekday:'long'}) });
     }
-    if (toolName === 'count_words') {
-      const t = args.text || '';
-      return JSON.stringify({ word_count: t.trim().split(/\s+/).filter(Boolean).length, char_count: t.length, char_no_spaces: t.replace(/\s/g,'').length, sentences: (t.match(/[.!?]+/g)||[]).length });
-    }
-    if (toolName === 'base64_encode') return JSON.stringify({ encoded: Buffer.from(args.text||'').toString('base64') });
-    if (toolName === 'base64_decode') {
-      try { return JSON.stringify({ decoded: Buffer.from(args.encoded||'','base64').toString('utf-8') }); }
-      catch(e) { return JSON.stringify({ error: 'Invalid base64' }); }
-    }
-    if (toolName === 'string_replace') return JSON.stringify({ result: (args.text||'').split(args.find||'').join(args.replace_with||'') });
-    if (toolName === 'string_upper') return JSON.stringify({ result: (args.text||'').toUpperCase() });
-    if (toolName === 'string_lower') return JSON.stringify({ result: (args.text||'').toLowerCase() });
     if (toolName === 'parse_json') {
       try {
         const obj = typeof args.json_string === 'string' ? JSON.parse(args.json_string) : args.json_string;
