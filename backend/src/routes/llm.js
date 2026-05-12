@@ -101,11 +101,12 @@ router.post('/test', async (req, res) => {
     }
 
     // BYOK: Only use user-provided keys from database (no env fallbacks)
-    const key = provider.api_key ? decrypt(provider.api_key) : '';
+    const decryptedRaw = provider.api_key ? decrypt(provider.api_key) : '';
+    const apiKeys = decryptedRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
     const baseUrl = provider.base_url || '';
     const model = provider.model || '';
 
-    if (!key) {
+    if (apiKeys.length === 0) {
       return res.status(400).json({ 
         success: false, 
         error: `No API key configured for "${provider_name}". Please add your API key in the settings.` 
@@ -126,10 +127,11 @@ router.post('/test', async (req, res) => {
       });
     }
 
+    // Test connection using the first key
     const response = await axios.post(
       `${baseUrl}/chat/completions`,
       { model, messages: [{ role: 'user', content: 'Reply with "Connection successful!"' }], max_tokens: 20 },
-      { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } }
+      { headers: { Authorization: `Bearer ${apiKeys[0]}`, 'Content-Type': 'application/json' } }
     );
     res.json({ success: true, response: response.data.choices[0].message.content });
   } catch (err) {

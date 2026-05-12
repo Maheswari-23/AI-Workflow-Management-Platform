@@ -233,9 +233,7 @@ router.post('/:id/generate-steps', async (req, res) => {
     if (!description) return res.status(400).json({ error: 'Description is required' });
 
     const opencode = await getOpenCodeClient();
-    if (!opencode.apiKey) {
-      return res.status(401).json({ error: 'No API Key configured. Please verify LLM provider settings.' });
-    }
+    // getOpenCodeClient already throws if no keys are configured
 
     const messages = [
       {
