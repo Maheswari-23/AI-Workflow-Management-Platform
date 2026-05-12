@@ -11,6 +11,7 @@ A powerful, multi-agent orchestration platform designed to automate complex busi
 - **Dynamic Tool System**: Agents can use a variety of tools (File System, Web Search, Market Data, etc.) or connect to custom APIs.
 - **Real-time Monitoring**: Stream workflow logs and agent progress in real-time via Server-Sent Events (SSE).
 - **Dockerized Execution**: Run tasks in secure, isolated Docker containers for consistent environments.
+- **Task Templates**: Quick-start templates for common workflows (Web Research, File Management, Data Processing).
 
 ## 🛠️ Technology Stack
 
