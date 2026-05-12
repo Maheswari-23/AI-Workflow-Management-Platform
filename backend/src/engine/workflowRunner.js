@@ -52,7 +52,8 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '', 
     ? `Previous agent output:\n${previousOutput}\n\nYour task:\n${prompt}`
     : prompt;
 
-  const envContext = `\n\n[ENVIRONMENT CONTEXT]\n- Operating System: ${process.platform}\n- Current Time: ${new Date().toISOString()}`;
+  const homeDir = process.env.USERPROFILE || process.env.HOME || 'Unknown';
+  const envContext = `\n\n[ENVIRONMENT CONTEXT]\n- Operating System: ${process.platform}\n- Home Directory: ${homeDir}\n- Current Working Directory: ${process.cwd()}\n- Current Time: ${new Date().toISOString()}`;
 
   let messages = [
     { role: 'system', content: systemPrompt + envContext },
