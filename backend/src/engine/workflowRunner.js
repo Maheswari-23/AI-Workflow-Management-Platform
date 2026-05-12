@@ -52,8 +52,10 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '', 
     ? `Previous agent output:\n${previousOutput}\n\nYour task:\n${prompt}`
     : prompt;
 
+  const envContext = `\n\n[ENVIRONMENT CONTEXT]\n- Operating System: ${process.platform}\n- Current Time: ${new Date().toISOString()}`;
+
   let messages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt + envContext },
     { role: 'user', content: userContent },
   ];
 

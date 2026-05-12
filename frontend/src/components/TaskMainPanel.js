@@ -20,10 +20,15 @@ const renderHighlightedLog = (text) => {
       );
     }
     if (line.includes('<- Tool returned data.') || line.includes('<- Tool returned') || line.includes('<- Result:')) {
+      const isError = line.toLowerCase().includes('"error":') || line.toLowerCase().includes('error:');
       return (
-        <div key={i} className="text-xs font-semibold mb-2 ml-2 flex items-center gap-1.5" style={{ color: '#059669' }}>
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
-          Tool completed successfully.
+        <div key={i} className="text-xs font-semibold mb-2 ml-2 flex items-center gap-1.5" style={{ color: isError ? '#ef4444' : '#059669' }}>
+          {isError ? (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+          )}
+          {isError ? 'Tool execution failed.' : 'Tool completed successfully.'}
         </div>
       );
     }
