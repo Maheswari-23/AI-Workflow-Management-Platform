@@ -8,11 +8,12 @@ const { decrypt } = require('../utils/crypto');
  * dynamically based on the user's selected LLM provider.
  */
 class OpenCodeClient {
-  constructor(apiKey, baseUrl, modelName, pricing = { promptCost: 0, completionCost: 0 }) {
-    this.apiKey = apiKey;
+  constructor(apiKeys, baseUrl, modelName, pricing = { promptCost: 0, completionCost: 0 }) {
+    this.apiKeys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
     this.baseUrl = baseUrl;
     this.modelName = modelName;
     this.pricing = pricing;
+    this.currentKeyIndex = 0;
   }
 
   async generate(messages, tools = []) {
@@ -28,16 +29,40 @@ class OpenCodeClient {
       payload.tool_choice = 'auto';
     }
 
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/chat/completions`,
-        payload,
-        { headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' } }
-      );
-      return response.data;
-    } catch (error) {
-      throw error;
+    let lastError = null;
+    const initialIndex = this.currentKeyIndex;
+
+    // Try each key once starting from current index
+    for (let i = 0; i < this.apiKeys.length; i++) {
+      const apiKey = this.apiKeys[this.currentKeyIndex];
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/chat/completions`,
+          payload,
+          { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+        );
+        return response.data;
+      } catch (error) {
+        lastError = error;
+        const statusCode = error.response?.status;
+        
+        // Rotate key if we hit rate limit (429) or server error (5xx)
+        if (statusCode === 429 || (statusCode >= 500 && statusCode < 600)) {
+          console.log(`Key ${this.currentKeyIndex} failed with ${statusCode}. Rotating to next key.`);
+          this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+          
+          // If we've circled back to the starting key, stop trying
+          if (this.currentKeyIndex === initialIndex) break;
+          
+          continue;
+        }
+        
+        // For other errors (401, 400, etc.), don't rotate, just throw
+        throw error;
+      }
     }
+    
+    throw lastError || new Error('All API keys failed or no keys available');
   }
 }
 
@@ -70,11 +95,17 @@ async function getOpenCodeClient(providerName = null) {
   }
 
   // BYOK: Only use user-provided keys from database (no env fallbacks)
-  const apiKey = providerDetails.api_key ? decrypt(providerDetails.api_key) : '';
+  const decryptedRaw = providerDetails.api_key ? decrypt(providerDetails.api_key) : '';
+  
+  // Support multiple keys separated by commas (Key Rotation)
+  const apiKeys = decryptedRaw.split(',')
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
+
   const baseUrl = providerDetails.base_url || '';
   const modelName = providerDetails.model || '';
 
-  if (!apiKey) {
+  if (apiKeys.length === 0) {
     throw new Error(
       `No API key configured for "${providerDetails.name}". ` +
       `Please add your API key in Settings > LLM Settings and set it as default.`
@@ -100,7 +131,7 @@ async function getOpenCodeClient(providerName = null) {
     completionCost: providerDetails.cost_per_1m_completion || 0.0
   };
 
-  return new OpenCodeClient(apiKey, baseUrl, modelName, pricing);
+  return new OpenCodeClient(apiKeys, baseUrl, modelName, pricing);
 }
 
 module.exports = { getOpenCodeClient };
