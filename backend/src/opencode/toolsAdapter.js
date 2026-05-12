@@ -35,6 +35,7 @@ const TOOL_SCHEMAS = {
   extract_keywords:  { props: { text: { type:'string', description:'Text to extract keywords from' }, count: { type:'number', description:'Number of keywords to extract (default 10)' } }, req: ['text'], desc: 'Extract the most important keywords from text using LLM.' },
   translate_text:    { props: { text: { type:'string', description:'Text to translate' }, target_language: { type:'string', description:'Target language e.g. "Spanish", "French", "Tamil"' } }, req: ['text','target_language'], desc: 'Translate text to another language using the configured LLM.' },
   ask_llm:           { props: { prompt: { type:'string', description:'Question or instruction for the LLM' } }, req: ['prompt'], desc: 'Ask the configured LLM a question and get a response.' },
+  remember:          { props: { key: { type:'string', description:'A short key to identify the memory e.g. "user_preference"' }, value: { type:'string', description:'The information to store' } }, req: ['key','value'], desc: 'Store a piece of information in your long-term memory for future runs.' },
 };
 
 async function getDynamicTools() {
@@ -74,10 +75,12 @@ async function getDynamicTools() {
 }
 
 // ─── Tool Execution ───────────────────────────────────────────────────────────
-async function executeTool(toolName, args, dynamicToolsList) {
+async function executeTool(toolName, args, dynamicToolsList, context = {}) {
   try {
     const toolDef = dynamicToolsList.find(t => t.function.name === toolName);
     if (!toolDef) return `Error: Tool "${toolName}" not found in active registry.`;
+
+    const { agentId } = context;
 
     // ── Utility tools ─────────────────────────────────────────────────────────
     if (toolName === 'get_current_time') {
@@ -97,6 +100,18 @@ async function executeTool(toolName, args, dynamicToolsList) {
         if (args.field) { const val = args.field.split('.').reduce((o,k)=>o?.[k], obj); return JSON.stringify({ field: args.field, value: val }); }
         return JSON.stringify({ parsed: obj });
       } catch(e) { return JSON.stringify({ error: 'Invalid JSON: ' + e.message }); }
+    }
+    if (toolName === 'remember') {
+      if (!agentId || agentId === 0) return JSON.stringify({ error: 'Anonymous agents cannot use long-term memory.' });
+      try {
+        const { dbRun } = require('../database/db');
+        await dbRun(
+          `INSERT INTO agent_memory (agent_id, key, value) VALUES (?, ?, ?)
+           ON CONFLICT(agent_id, key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+          [agentId, args.key, args.value]
+        );
+        return JSON.stringify({ success: true, message: `Memory "${args.key}" saved.` });
+      } catch(e) { return JSON.stringify({ error: 'Failed to save memory: ' + e.message }); }
     }
 
     // ── File system tools ─────────────────────────────────────────────────────
@@ -123,23 +138,54 @@ async function executeTool(toolName, args, dynamicToolsList) {
     // ── Web & Browser tools ───────────────────────────────────────────────────
     if (toolName === 'web_search') {
       try {
-        const query = encodeURIComponent(args.query);
-        const max = args.max_results || 5;
-        // DuckDuckGo instant answer API (no key needed)
-        const res = await axios.get(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`, { timeout: 8000 });
-        const results = [];
-        if (res.data.AbstractText) results.push({ title: res.data.Heading, url: res.data.AbstractURL, snippet: res.data.AbstractText });
-        (res.data.RelatedTopics || []).slice(0, max - results.length).forEach(t => {
-          if (t.Text && t.FirstURL) results.push({ title: t.Text.split(' - ')[0], url: t.FirstURL, snippet: t.Text });
-        });
-        // Fallback: use DuckDuckGo HTML search scrape
-        if (results.length === 0) {
-          const html = await axios.get(`https://html.duckduckgo.com/html/?q=${query}`, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-          const matches = [...html.data.matchAll(/<a class="result__a" href="([^"]+)"[^>]*>([^<]+)<\/a>/g)];
-          matches.slice(0, max).forEach(m => results.push({ url: m[1], title: m[2], snippet: '' }));
+        const tavilyKey = process.env.TAVILY_API_KEY;
+        if (!tavilyKey || tavilyKey === 'your_tavily_api_key_here') {
+          // Fallback to DuckDuckGo if Tavily key not configured
+          console.log('[web_search] Tavily key not configured, falling back to DuckDuckGo');
+          const query = encodeURIComponent(args.query);
+          const max = args.max_results || 5;
+          const res = await axios.get(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`, { timeout: 8000 });
+          const results = [];
+          if (res.data.AbstractText) results.push({ title: res.data.Heading, url: res.data.AbstractURL, snippet: res.data.AbstractText });
+          (res.data.RelatedTopics || []).slice(0, max - results.length).forEach(t => {
+            if (t.Text && t.FirstURL) results.push({ title: t.Text.split(' - ')[0], url: t.FirstURL, snippet: t.Text });
+          });
+          if (results.length === 0) {
+            const html = await axios.get(`https://html.duckduckgo.com/html/?q=${query}`, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const matches = [...html.data.matchAll(/<a class="result__a" href="([^"]+)"[^>]*>([^<]+)<\/a>/g)];
+            matches.slice(0, max).forEach(m => results.push({ url: m[1], title: m[2], snippet: '' }));
+          }
+          return JSON.stringify({ query: args.query, results: results.slice(0, max), source: 'duckduckgo' });
         }
-        return JSON.stringify({ query: args.query, results: results.slice(0, max) });
-      } catch(e) { return JSON.stringify({ error: 'Search failed: ' + e.message }); }
+
+        // Use Tavily API
+        const tavilyRes = await axios.post(
+          'https://api.tavily.com/search',
+          {
+            api_key: tavilyKey,
+            query: args.query,
+            max_results: args.max_results || 5,
+            include_answer: true,
+            include_raw_content: false
+          },
+          { timeout: 10000 }
+        );
+
+        const results = (tavilyRes.data.results || []).map(r => ({
+          title: r.title,
+          url: r.url,
+          snippet: r.content || r.snippet || ''
+        }));
+
+        return JSON.stringify({
+          query: args.query,
+          results,
+          answer: tavilyRes.data.answer,
+          source: 'tavily'
+        });
+      } catch(e) {
+        return JSON.stringify({ error: 'Search failed: ' + e.message });
+      }
     }
 
     if (toolName === 'fetch_webpage') {
@@ -237,18 +283,77 @@ async function executeTool(toolName, args, dynamicToolsList) {
 
     if (toolName === 'get_news') {
       try {
-        const topic = encodeURIComponent(args.topic || 'technology');
-        const max = args.max_results || 5;
-        // GNews free API (no key needed for basic use)
-        const res = await axios.get(`https://gnews.io/api/v4/search?q=${topic}&lang=en&max=${max}&apikey=free`, { timeout: 8000 });
-        if (res.data.articles) {
-          return JSON.stringify({ topic: args.topic, articles: res.data.articles.map(a => ({ title: a.title, source: a.source?.name, url: a.url, published: a.publishedAt, description: a.description })) });
+        const tavilyKey = process.env.TAVILY_API_KEY;
+        
+        if (!tavilyKey || tavilyKey === 'your_tavily_api_key_here') {
+          // Fallback to DuckDuckGo if Tavily key not configured
+          console.log('[get_news] Tavily key not configured, falling back to DuckDuckGo');
+          const topic = encodeURIComponent(args.topic || 'technology');
+          const max = args.max_results || 5;
+          const ddgUrl = `https://api.duckduckgo.com/?q=${topic}+news&format=json&no_html=1`;
+          const ddg = await axios.get(ddgUrl, { timeout: 8000 });
+          const items = [];
+          if (ddg.data.AbstractText && ddg.data.AbstractURL) {
+            items.push({
+              title: ddg.data.Heading || topic,
+              url: ddg.data.AbstractURL,
+              description: ddg.data.AbstractText,
+              source: ddg.data.AbstractSource || 'Web',
+              published: new Date().toISOString()
+            });
+          }
+          (ddg.data.RelatedTopics || []).slice(0, max - items.length).forEach(t => {
+            if (t.Text && t.FirstURL) {
+              items.push({
+                title: t.Text.split(' - ')[0],
+                url: t.FirstURL,
+                description: t.Text,
+                source: 'DuckDuckGo',
+                published: new Date().toISOString()
+              });
+            }
+          });
+          if (items.length === 0) {
+            return JSON.stringify({ error: 'No news found', suggestion: 'Try using web_search tool instead' });
+          }
+          return JSON.stringify({ topic: args.topic, articles: items, source: 'duckduckgo' });
         }
-        // Fallback: DuckDuckGo news
-        const ddg = await axios.get(`https://api.duckduckgo.com/?q=${topic}+news&format=json&no_html=1`, { timeout: 8000 });
-        const items = (ddg.data.RelatedTopics || []).slice(0, max).map(t => ({ title: t.Text, url: t.FirstURL }));
-        return JSON.stringify({ topic: args.topic, articles: items });
-      } catch(e) { return JSON.stringify({ error: e.message }); }
+
+        // Use Tavily API for news search
+        const tavilyRes = await axios.post(
+          'https://api.tavily.com/search',
+          {
+            api_key: tavilyKey,
+            query: `${args.topic} news latest`,
+            max_results: args.max_results || 5,
+            include_answer: true,
+            include_raw_content: false,
+            search_depth: 'basic',
+            topic: 'news'
+          },
+          { timeout: 10000 }
+        );
+
+        const articles = (tavilyRes.data.results || []).map(r => ({
+          title: r.title,
+          url: r.url,
+          description: r.content || r.snippet || '',
+          source: new URL(r.url).hostname,
+          published: r.published_date || new Date().toISOString()
+        }));
+
+        return JSON.stringify({
+          topic: args.topic,
+          articles,
+          summary: tavilyRes.data.answer,
+          source: 'tavily'
+        });
+      } catch(e) { 
+        return JSON.stringify({ 
+          error: e.message,
+          suggestion: 'Try using web_search tool instead'
+        }); 
+      }
     }
 
     if (toolName === 'get_public_holidays') {

@@ -88,11 +88,11 @@ function initializeSchema() {
       db.run('PRAGMA foreign_keys = ON');
     }
 
-    // Agents table
+    // Agents table — UNIQUE on name to prevent duplicate seeding
     db.run(`
       CREATE TABLE IF NOT EXISTS agents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL UNIQUE,
         status TEXT DEFAULT 'offline',
         system_prompt TEXT DEFAULT '',
         skill_file_name TEXT DEFAULT '',
@@ -100,6 +100,8 @@ function initializeSchema() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Migrate: deduplicate agents first then recreate (simulated by deleting duplicates)
+    db.run(`DELETE FROM agents WHERE id NOT IN (SELECT MIN(id) FROM agents GROUP BY name)`, () => {});
 
     // Tools table — UNIQUE on name to prevent duplicate seeding
     db.run(`
@@ -210,12 +212,17 @@ function initializeSchema() {
         ('Gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-1.5-flash', 0.075, 0.30)
     `);
 
+    // Cleanup redundant providers and ensure clean naming (user request)
+    db.run(`DELETE FROM llm_providers WHERE name = 'Google AI Studio' OR name = 'Ollama (Local)' OR (name LIKE 'Google%' AND name != 'Gemini')`);
+
     // Set Groq as default if no default is set
     db.run(`UPDATE llm_providers SET is_default = 1 WHERE name = 'Groq' AND NOT EXISTS (SELECT 1 FROM llm_providers WHERE is_default = 1)`);
     
     // Update models to recommended defaults for better performance
     db.run(`UPDATE llm_providers SET model = 'llama-3.3-70b-versatile' WHERE name = 'Groq' AND model = ''`);
-    db.run(`UPDATE llm_providers SET model = 'gemini-1.5-flash' WHERE name = 'Gemini' AND (model = 'gemini-1.5-pro' OR model = '')`);
+    // Force update deprecated models to latest production model with tool calling support
+    db.run(`UPDATE llm_providers SET model = 'llama-3.3-70b-versatile' WHERE name = 'Groq' AND model IN ('llama3-groq-70b-8192-tool-use-preview', 'llama3-70b-8192', 'mixtral-8x7b-32768', 'compound-beta', 'compound-beta-mini')`);
+    db.run(`UPDATE llm_providers SET model = 'gemini-1.5-flash' WHERE name = 'Gemini' AND (model LIKE 'gemini-2.5%' OR model = 'gemini-1.5-pro' OR model = '')`);
     db.run(`UPDATE llm_providers SET model = 'gpt-4o' WHERE name = 'OpenAI' AND model = ''`);
     db.run(`UPDATE llm_providers SET model = 'claude-3-5-sonnet-20241022' WHERE name = 'Anthropic' AND model = ''`);
 
@@ -255,6 +262,7 @@ function initializeSchema() {
       ['extract_keywords',   'ai',      'Extract the most important keywords from text using LLM.',                     '', 'GET'],
       ['translate_text',     'ai',      'Translate text to another language using the configured LLM.',                 '', 'GET'],
       ['ask_llm',            'ai',      'Ask the configured LLM a question and get a response.',                        '', 'GET'],
+      ['remember',           'system',  'Store a piece of information in your long-term memory for future runs.',      '', 'GET'],
     ];
 
     for (const [name, type, description, endpoint, method] of builtinTools) {

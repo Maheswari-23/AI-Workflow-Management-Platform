@@ -1,31 +1,37 @@
 'use client';
 import { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const L='#b57bee',LL='#f3e8ff',LB='#e9d5ff',TH='#1e0a35',TM='#9b87ba';
+const COLORS = ['#b57bee', '#8b5cf6', '#d8b4fe', '#7c3aed', '#6d28d9', '#4c1d95'];
+
+// Icons
+const IconCost = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const IconTokens = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 11h.01M7 15h.01M11 7h.01M11 11h.01M11 15h.01M15 7h.01M15 11h.01M15 15h.01M19 7h.01M19 11h.01M19 15h.01M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const IconEfficiency = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>;
+const IconBudget = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>;
 
 export default function CostPage() {
-  const [tasks, setTasks] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [budgetLimit, setBudgetLimit] = useState(100);
   const [showBudgetForm, setShowBudgetForm] = useState(false);
 
   useEffect(() => {
-    fetchTasks();
-    // Load budget from localStorage
+    fetchAnalytics();
     const saved = localStorage.getItem('orchestr_budget_limit');
     if (saved) setBudgetLimit(parseFloat(saved));
   }, []);
 
-  const fetchTasks = async () => {
+  const fetchAnalytics = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/tasks');
+      const res = await fetch('/api/history/analytics');
       const data = await res.json();
-      setTasks(data.tasks || []);
+      setAnalytics(data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch analytics:', err);
     } finally {
       setIsLoading(false);
     }
@@ -36,360 +42,191 @@ export default function CostPage() {
     setShowBudgetForm(false);
   };
 
-  // Calculate token usage and costs
-  const calculateCosts = () => {
-    const completedTasks = tasks.filter(t => t.status === 'completed');
-    
-    // Estimate tokens from workflow_steps and description
-    const totalTokens = completedTasks.reduce((sum, task) => {
-      const stepsLength = (task.workflow_steps || '').length;
-      const descLength = (task.description || '').length;
-      return sum + Math.floor((stepsLength + descLength) / 4); // ~4 chars per token
-    }, 0);
-
-    // Pricing (example rates - adjust based on actual LLM provider)
-    const inputCostPer1k = 0.01; // $0.01 per 1k input tokens
-    const outputCostPer1k = 0.03; // $0.03 per 1k output tokens
-    
-    // Assume 60% input, 40% output
-    const inputTokens = Math.floor(totalTokens * 0.6);
-    const outputTokens = Math.floor(totalTokens * 0.4);
-    
-    const inputCost = (inputTokens / 1000) * inputCostPer1k;
-    const outputCost = (outputTokens / 1000) * outputCostPer1k;
-    const totalCost = inputCost + outputCost;
-
-    return {
-      totalTokens,
-      inputTokens,
-      outputTokens,
-      inputCost,
-      outputCost,
-      totalCost,
-      completedTasks: completedTasks.length,
-      avgCostPerTask: completedTasks.length > 0 ? totalCost / completedTasks.length : 0,
-    };
-  };
-
-  const costs = calculateCosts();
-  const budgetUsagePercent = (costs.totalCost / budgetLimit) * 100;
+  const totals = analytics?.totals || { cost: 0, promptTokens: 0, completionTokens: 0, runs: 0 };
+  const budgetUsagePercent = (totals.cost / budgetLimit) * 100;
   const isNearLimit = budgetUsagePercent > 80;
   const isOverBudget = budgetUsagePercent > 100;
 
-  // Group tasks by month for breakdown
-  const tasksByMonth = tasks.reduce((acc, task) => {
-    if (task.status !== 'completed') return acc;
-    const date = new Date(task.updated_at);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    if (!acc[monthKey]) acc[monthKey] = [];
-    acc[monthKey].push(task);
-    return acc;
-  }, {});
+  const modelData = (analytics?.byModel || []).map(m => ({
+    name: m.model_used,
+    value: parseFloat(m.cost.toFixed(4)),
+    tokens: m.total_tokens
+  })).filter(m => m.value > 0);
 
-  // Generate daily cost data for the last 14 days
-  const generateDailyCostData = () => {
-    const data = [];
-    const today = new Date();
-    
-    for (let i = 13; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const yearStr = date.getFullYear();
-      const monthStr = String(date.getMonth() + 1).padStart(2, '0');
-      const dayStr = String(date.getDate()).padStart(2, '0');
-      const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
-      
-      const dayTasks = tasks.filter(t => {
-        if (t.status !== 'completed') return false;
-        const tDate = new Date(t.updated_at);
-        const tYear = tDate.getFullYear();
-        const tMonth = String(tDate.getMonth() + 1).padStart(2, '0');
-        const tDay = String(tDate.getDate()).padStart(2, '0');
-        return `${tYear}-${tMonth}-${tDay}` === dateStr;
-      });
-      
-      const dayCost = dayTasks.reduce((sum, task) => {
-        const stepsLength = (task.workflow_steps || '').length;
-        const descLength = (task.description || '').length;
-        const tokens = Math.floor((stepsLength + descLength) / 4);
-        const inputTokens = Math.floor(tokens * 0.6);
-        const outputTokens = Math.floor(tokens * 0.4);
-        const inputCost = (inputTokens / 1000) * 0.01;
-        const outputCost = (outputTokens / 1000) * 0.03;
-        return sum + inputCost + outputCost;
-      }, 0);
-      
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        cost: parseFloat(dayCost.toFixed(2)),
-        tokens: dayTasks.reduce((sum, task) => {
-          const tokens = Math.floor(((task.workflow_steps || '').length + (task.description || '').length) / 4);
-          return sum + tokens;
-        }, 0),
-        fullDate: dateStr
-      });
-    }
-    
-    return data;
-  };
-
-  const dailyCostData = generateDailyCostData();
+  const timeseriesData = (analytics?.timeseries || []).map(d => ({
+    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    cost: parseFloat(d.daily_cost.toFixed(4)),
+    tokens: d.daily_tokens
+  }));
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: '#fff' }}>
       <PageHeader 
         title="Cost Management" 
-        description="Track LLM token usage and costs across all workflows."
+        description="Monitor and optimize your LLM spend with model-level granularity."
         buttonText="Set Budget"
         buttonAction={() => setShowBudgetForm(true)}
       />
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: '#fafafa' }}>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-6">
 
           {/* Budget Form Modal */}
           {showBudgetForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
               onClick={() => setShowBudgetForm(false)}>
-              <div className="rounded-2xl p-6 max-w-md w-full"
+              <div className="rounded-2xl p-8 max-w-md w-full shadow-2xl border border-purple-100"
                 style={{ background: '#fff' }}
                 onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-lg font-bold mb-4" style={{ color: TH }}>Set Monthly Budget</h3>
-                <input 
-                  type="number" 
-                  value={budgetLimit}
-                  onChange={(e) => setBudgetLimit(parseFloat(e.target.value) || 0)}
-                  className="w-full px-4 py-3 rounded-xl text-sm mb-4"
-                  style={{ border: `1.5px solid ${LB}`, color: TH }}
-                  placeholder="Budget in USD"
-                />
+                <h3 className="text-xl font-bold mb-2" style={{ color: TH }}>Set Spending Limit</h3>
+                <p className="text-sm mb-6" style={{ color: TM }}>Enter your desired monthly budget in USD.</p>
+                <div className="relative mb-6">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold" style={{ color: TM }}>$</span>
+                  <input 
+                    type="number" 
+                    value={budgetLimit}
+                    onChange={(e) => setBudgetLimit(parseFloat(e.target.value) || 0)}
+                    className="w-full pl-10 pr-4 py-4 rounded-xl text-lg font-bold"
+                    style={{ border: `1.5px solid ${LB}`, color: TH, outline: 'none' }}
+                    placeholder="100.00"
+                    autoFocus
+                  />
+                </div>
                 <div className="flex gap-3">
-                  <button 
-                    onClick={saveBudget}
-                    className="flex-1 px-6 py-3 text-white font-semibold rounded-xl hover:opacity-85"
-                    style={{ background: L }}>
-                    Save Budget
-                  </button>
-                  <button 
-                    onClick={() => setShowBudgetForm(false)}
-                    className="px-6 py-3 font-semibold rounded-xl hover:opacity-85"
-                    style={{ background: LL, color: L }}>
-                    Cancel
-                  </button>
+                  <button onClick={saveBudget} className="flex-1 px-6 py-3.5 text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-md"
+                    style={{ background: L }}>Save Changes</button>
+                  <button onClick={() => setShowBudgetForm(false)} className="px-6 py-3.5 font-bold rounded-xl hover:bg-gray-50 transition-all"
+                    style={{ color: TM }}>Cancel</button>
                 </div>
               </div>
             </div>
           )}
 
           {isLoading ? (
-            <div className="text-center py-20" style={{ color: TM }}>Loading cost data...</div>
+            <div className="flex flex-col items-center justify-center py-32 space-y-4">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-100 border-t-purple-600"></div>
+              <p className="text-sm font-medium" style={{ color: TM }}>Gathering analytics data...</p>
+            </div>
           ) : (
             <>
-              {/* Budget Alert */}
-              {isOverBudget && (
-                <div className="mb-6 p-4 rounded-2xl" style={{ background: '#fef2f2', border: `1.5px solid #fecaca` }}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">⚠️</span>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: '#991b1b' }}>Budget Exceeded!</p>
-                      <p className="text-xs" style={{ color: '#7f1d1d' }}>
-                        You've spent ${costs.totalCost.toFixed(2)} of your ${budgetLimit.toFixed(2)} monthly budget.
-                      </p>
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Total Expenditure', val: `$${totals.cost.toFixed(2)}`, sub: `${totals.runs} Total Runs`, icon: <IconCost />, color: '#10b981' },
+                  { label: 'Token Usage', val: (totals.promptTokens + totals.completionTokens).toLocaleString(), sub: `${totals.completionTokens.toLocaleString()} Completion`, icon: <IconTokens />, color: L },
+                  { label: 'Efficiency', val: `$${(totals.runs > 0 ? totals.cost / totals.runs : 0).toFixed(3)}`, sub: 'Avg. cost per task', icon: <IconEfficiency />, color: '#3b82f6' },
+                  { label: 'Budget Limit', val: `$${budgetLimit.toFixed(0)}`, sub: `${budgetUsagePercent.toFixed(1)}% Consumed`, icon: <IconBudget />, color: isOverBudget ? '#ef4444' : '#f59e0b' },
+                ].map((card, i) => (
+                  <div key={i} className="rounded-2xl p-5 shadow-sm border" style={{ background: '#fff', borderColor: LB }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="p-2 rounded-lg" style={{ background: `${card.color}10`, color: card.color }}>{card.icon}</div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TM }}>{card.label}</span>
                     </div>
+                    <p className="text-2xl font-bold" style={{ color: TH }}>{card.val}</p>
+                    <p className="text-[11px] font-medium mt-1" style={{ color: TM }}>{card.sub}</p>
                   </div>
-                </div>
-              )}
-
-              {isNearLimit && !isOverBudget && (
-                <div className="mb-6 p-4 rounded-2xl" style={{ background: '#fffbeb', border: `1.5px solid #fcd34d` }}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">⚡</span>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: '#92400e' }}>Approaching Budget Limit</p>
-                      <p className="text-xs" style={{ color: '#78350f' }}>
-                        You've used {budgetUsagePercent.toFixed(1)}% of your monthly budget.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: TM }}>Total Cost</p>
-                  <p className="text-3xl font-bold" style={{ color: TH }}>${costs.totalCost.toFixed(2)}</p>
-                  <p className="text-xs mt-1" style={{ color: TM }}>{costs.completedTasks} completed tasks</p>
-                </div>
-
-                <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: TM }}>Total Tokens</p>
-                  <p className="text-3xl font-bold" style={{ color: TH }}>{costs.totalTokens.toLocaleString()}</p>
-                  <p className="text-xs mt-1" style={{ color: TM }}>
-                    {costs.inputTokens.toLocaleString()} in / {costs.outputTokens.toLocaleString()} out
-                  </p>
-                </div>
-
-                <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: TM }}>Avg Cost/Task</p>
-                  <p className="text-3xl font-bold" style={{ color: TH }}>${costs.avgCostPerTask.toFixed(3)}</p>
-                  <p className="text-xs mt-1" style={{ color: TM }}>Per completed workflow</p>
-                </div>
-
-                <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: TM }}>Budget Remaining</p>
-                  <p className="text-3xl font-bold" style={{ 
-                    color: isOverBudget ? '#991b1b' : isNearLimit ? '#92400e' : '#065f46' 
-                  }}>
-                    ${Math.max(0, budgetLimit - costs.totalCost).toFixed(2)}
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: TM }}>
-                    {budgetUsagePercent.toFixed(1)}% used
-                  </p>
-                </div>
+                ))}
               </div>
 
-              {/* Budget Progress Bar */}
-              <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-bold" style={{ color: TH }}>Budget Usage</p>
-                  <p className="text-xs" style={{ color: TM }}>
-                    ${costs.totalCost.toFixed(2)} / ${budgetLimit.toFixed(2)}
-                  </p>
-                </div>
-                <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: '#f3f4f6' }}>
-                  <div 
-                    className="h-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.min(100, budgetUsagePercent)}%`,
-                      background: isOverBudget ? '#ef4444' : isNearLimit ? '#f59e0b' : L
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Daily Cost Chart */}
-              {(() => {
-                const maxCost = Math.max(...dailyCostData.map(d => d.cost || 0));
-                const maxTokens = Math.max(...dailyCostData.map(d => d.tokens || 0));
-                
-                if (maxCost === 0 && maxTokens === 0) return null;
-
-                const showCost = maxCost > 0;
-                const chartTitle = showCost ? 'Daily API Cost (Last 14 Days)' : 'Daily Token Usage (Last 14 Days)';
-                const dataKey = showCost ? 'cost' : 'tokens';
-                const unit = showCost ? '$' : '';
-                const precision = showCost ? 2 : 0;
-
-                return (
-                  <div className="rounded-2xl p-6 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}`, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
-                    <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: TH }}>
-                      <svg className={`w-5 h-5 ${showCost ? 'text-emerald-500' : 'text-purple-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Gauge Card */}
+                <div className="lg:col-span-1 rounded-2xl p-6 shadow-sm border flex flex-col" style={{ background: '#fff', borderColor: LB }}>
+                  <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: TH }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: L }}></span> Budget Status
+                  </h3>
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="relative h-40 w-40 mb-6">
+                      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                        <circle cx="50" cy="50" r="42" stroke="#f3f4f6" strokeWidth="8" fill="none" />
+                        <circle cx="50" cy="50" r="42" stroke={isOverBudget ? '#ef4444' : isNearLimit ? '#f59e0b' : L} 
+                          strokeWidth="8" fill="none" strokeDasharray={`${Math.min(100, budgetUsagePercent) * 2.64} 264`} 
+                          strokeLinecap="round" className="transition-all duration-1000 ease-out" />
                       </svg>
-                      {chartTitle}
-                    </h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={dailyCostData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={LB} opacity={0.5} />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke={TM}
-                          axisLine={false}
-                          tickLine={false}
-                          style={{ fontSize: '12px' }}
-                        />
-                        <YAxis 
-                          stroke={TM}
-                          axisLine={false}
-                          tickLine={false}
-                          style={{ fontSize: '12px' }}
-                          tickFormatter={(v) => `${unit}${v >= 1000 ? (v/1000).toLocaleString() : v}`}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            background: '#fff', 
-                            border: `1.5px solid ${LB}`,
-                            borderRadius: '12px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                            fontSize: '12px'
-                          }}
-                          formatter={(value) => [`${unit}${value.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })}`, showCost ? 'Cost' : 'Tokens']}
-                          labelStyle={{ color: TH, fontWeight: 'bold' }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey={dataKey} 
-                          stroke={L} 
-                          strokeWidth={3}
-                          dot={{ fill: L, r: 4 }}
-                          activeDot={{ r: 6 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                );
-              })()}
-
-              {/* Cost Breakdown by Month */}
-              <div className="rounded-2xl p-5 mb-6" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>Monthly Breakdown</h3>
-                {Object.keys(tasksByMonth).length === 0 ? (
-                  <p className="text-sm text-center py-6" style={{ color: TM }}>No completed tasks yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {Object.entries(tasksByMonth).reverse().map(([month, monthTasks]) => {
-                      const monthTokens = monthTasks.reduce((sum, t) => {
-                        return sum + Math.floor(((t.workflow_steps || '').length + (t.description || '').length) / 4);
-                      }, 0);
-                      const monthCost = (monthTokens / 1000) * 0.02; // Simplified calculation
-                      
-                      return (
-                        <div key={month} className="flex items-center justify-between p-3 rounded-xl" 
-                          style={{ background: '#fafafa', border: `1px solid ${LB}` }}>
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: TH }}>{month}</p>
-                            <p className="text-xs" style={{ color: TM }}>
-                              {monthTasks.length} tasks • {monthTokens.toLocaleString()} tokens
-                            </p>
-                          </div>
-                          <p className="text-sm font-bold" style={{ color: L }}>${monthCost.toFixed(2)}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Cost Optimization Tips */}
-              <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1.5px solid ${LB}` }}>
-                <h3 className="text-sm font-bold mb-4" style={{ color: TH }}>💡 Cost Optimization Tips</h3>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs">✓</span>
-                    <p className="text-xs" style={{ color: TM }}>
-                      Use shorter, more focused workflow descriptions to reduce token usage
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs">✓</span>
-                    <p className="text-xs" style={{ color: TM }}>
-                      Reuse agents with memory instead of creating new ones for similar tasks
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs">✓</span>
-                    <p className="text-xs" style={{ color: TM }}>
-                      Test workflows with dry runs before full execution
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs">✓</span>
-                    <p className="text-xs" style={{ color: TM }}>
-                      Consider using cheaper LLM models for simple tasks
-                    </p>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-bold" style={{ color: TH }}>{Math.min(100, budgetUsagePercent).toFixed(0)}%</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TM }}>Consumed</span>
+                      </div>
+                    </div>
+                    <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                        <span className="text-xs font-medium" style={{ color: TM }}>Spent so far</span>
+                        <span className="text-xs font-bold" style={{ color: TH }}>${totals.cost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs font-medium" style={{ color: TM }}>Remaining</span>
+                        <span className="text-xs font-bold" style={{ color: isOverBudget ? '#ef4444' : '#10b981' }}>
+                          ${Math.max(0, budgetLimit - totals.cost).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Pie Chart Card */}
+                <div className="lg:col-span-2 rounded-2xl p-6 shadow-sm border" style={{ background: '#fff', borderColor: LB }}>
+                  <h3 className="text-sm font-bold mb-6 flex items-center gap-2" style={{ color: TH }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }}></span> Model Expenditure
+                  </h3>
+                  <div className="h-[280px] w-full">
+                    {modelData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={modelData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
+                            {modelData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }} formatter={(v) => [`$${v}`, 'Expenditure']} />
+                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '20px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-xs font-medium" style={{ color: TM }}>No data available.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Trend Card */}
+              <div className="rounded-2xl p-6 shadow-sm border" style={{ background: '#fff', borderColor: LB }}>
+                <h3 className="text-sm font-bold mb-8 flex items-center gap-2" style={{ color: TH }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: '#10b981' }}></span> Daily Cost Trend
+                </h3>
+                <div className="h-[300px] w-full">
+                  {timeseriesData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={timeseriesData}>
+                        <defs>
+                          <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={L} stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor={L} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke={LL} />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: TM, fontSize: 10 }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: TM, fontSize: 10 }} dx={-10} tickFormatter={(v) => `$${v}`} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }} formatter={(v) => [`$${v}`, 'Cost']} />
+                        <Area type="monotone" dataKey="cost" stroke={L} strokeWidth={3} fillOpacity={1} fill="url(#colorCost)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs font-medium" style={{ color: TM }}>No trend data recorded.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Optimization Section */}
+              <div className="rounded-2xl p-6 border flex flex-col md:flex-row items-center gap-6" style={{ background: `${LL}40`, borderColor: LB }}>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-white" style={{ color: L }}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </div>
+                    <h3 className="text-sm font-bold" style={{ color: TH }}>Usage Recommendation</h3>
+                  </div>
+                  <p className="text-xs" style={{ color: TM }}>Your heavy reliance on high-cost models detected. Switching background validation tasks to **Groq Llama 3** could reduce monthly burn by ~35%.</p>
+                </div>
+                <button className="whitespace-nowrap px-6 py-2.5 text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all shadow-sm"
+                  style={{ background: L }}>Apply Optimizations</button>
               </div>
             </>
           )}

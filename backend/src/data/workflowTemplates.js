@@ -96,6 +96,83 @@ const WORKFLOW_TEMPLATES = [
     suggested_tools: ['list_directory', 'read_file', 'write_file', 'count_words', 'parse_json', 'log'],
     example_description: 'Analyze and organize files in the /documents folder and create an inventory report.',
   },
+  
+  {
+    id: 'cleanup-temp-files',
+    name: 'Cleanup Temporary Files',
+    category: 'Automation',
+    description: 'Find and remove .tmp, .bak, and old setup files in the Downloads folder.',
+    icon: 'trash-2',
+    agents: ['Data Cleaner'],
+    workflow_steps: `1. Scan the Downloads folder for files with .tmp, .bak, or .temp extensions
+2. Identify old .exe or .msi setup files that haven't been accessed in 30 days
+3. Create a summary of files to be deleted
+4. [APPROVAL] Wait for user confirmation before deleting files
+5. Remove the approved temporary files`,
+    suggested_tools: ['list_directory', 'run_shell_command', 'log'],
+    example_description: 'Clean up temporary and setup files in my Downloads folder to free up space.',
+  },
+  
+  {
+    id: 'organize-photos-by-date',
+    name: 'Organize Photos by Date',
+    category: 'Automation',
+    description: 'Move images from Downloads into folders organized by year.',
+    icon: 'image',
+    agents: ['Media Manager'],
+    workflow_steps: `1. List all files with image extensions (.jpg, .png, .jpeg) in the Downloads folder
+2. Determine the creation year for each file from name or metadata
+3. Create folders like 'Photos/2023', 'Photos/2024' inside Downloads if they don't exist
+4. Move the images into their respective year folders`,
+    suggested_tools: ['list_directory', 'run_shell_command', 'get_current_time'],
+    example_description: 'Organize all the screenshots and photos in my Downloads folder into yearly subfolders.',
+  },
+  
+  {
+    id: 'source-code-backup',
+    name: 'Source Code Backup',
+    category: 'Automation',
+    description: 'Identify project folders (containing .git or package.json) and suggest archival.',
+    icon: 'archive',
+    agents: ['Log Archiver'],
+    workflow_steps: `1. Scan the Downloads folder for directories
+2. For each directory, check for the presence of '.git' or 'package.json'
+3. List all identified project folders
+4. Suggest creating a ZIP archive for each project and moving it to a 'Backups' folder`,
+    suggested_tools: ['list_directory', 'run_shell_command'],
+    example_description: 'Find all my coding projects in Downloads and back them up to a central folder.',
+  },
+  
+  {
+    id: 'read-write-text-file',
+    name: 'Read/Write Text File',
+    category: 'Automation',
+    description: 'Create a simple .txt file, write content to it, and then read it back.',
+    icon: 'file-text',
+    agents: ['File Manager'],
+    workflow_steps: `1. Use write_file to create a new file named 'hello_world.txt' in the Downloads folder
+2. Write the text 'Hello from the AI Workflow Platform!' into the file
+3. Use read_file to read the content of 'hello_world.txt'
+4. IMPORTANT: In your final output, explicitly print the exact content you read from the file so the user can see it.
+5. Use run_shell_command to delete the file after verifying it (e.g. 'del hello_world.txt' on Windows).`,
+    suggested_tools: ['write_file', 'read_file', 'log', 'run_shell_command'],
+    example_description: 'Test the file system by creating and reading a simple text file.',
+  },
+  
+  {
+    id: 'ai-news-trends-report',
+    name: 'AI News & Trends Report',
+    category: 'Content',
+    description: 'Fetch latest AI news and save it to a dated .txt file.',
+    icon: 'newspaper',
+    agents: ['News Analyst'],
+    workflow_steps: `1. Use get_news to search for the latest trends and news in Artificial Intelligence
+2. Use get_current_time to get the current date
+3. Format the findings into a clear, structured report
+4. Use write_file to save the report to a file named 'latest_ai_news_[current_date].txt' in the Downloads folder`,
+    suggested_tools: ['get_news', 'get_current_time', 'write_file', 'log'],
+    example_description: 'Stay updated with AI trends by generating a dated news report file.',
+  },
 ];
 
 module.exports = { WORKFLOW_TEMPLATES };

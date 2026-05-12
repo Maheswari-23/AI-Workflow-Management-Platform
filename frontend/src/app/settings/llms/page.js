@@ -87,9 +87,12 @@ export default function LLMSettingsPage() {
             <table className="min-w-full text-left">
               <thead>
                 <tr style={{ background: LL }}>
-                  {['Provider', 'Model', 'Base URL', 'Status', 'Default', ''].map(col => (
-                    <th key={col} className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>{col}</th>
-                  ))}
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L, width: '180px' }}>Provider</th>
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L, width: '200px' }}>Model</th>
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L, width: '250px' }}>Base URL</th>
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>Status</th>
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}>Default</th>
+                  <th className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider" style={{ color: L }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -103,11 +106,15 @@ export default function LLMSettingsPage() {
                     style={{ borderTop: `1px solid ${LB}`, background: selectedProvider?.name === p.name ? LL : 'transparent' }}
                     onMouseEnter={e => { if (selectedProvider?.name !== p.name) e.currentTarget.style.background = '#fdf8ff'; }}
                     onMouseLeave={e => { if (selectedProvider?.name !== p.name) e.currentTarget.style.background = 'transparent'; }}>
-                    <td className="px-5 py-3">
-                      <span className="text-sm font-semibold" style={{ color: TH }}>{p.name}</span>
+                    <td className="px-5 py-3" style={{ width: '180px' }}>
+                      <span className="text-sm font-semibold truncate block" style={{ color: TH }} title={p.name}>{p.name}</span>
                     </td>
-                    <td className="px-5 py-3 text-sm font-mono" style={{ color: TM }}>{p.model || '—'}</td>
-                    <td className="px-5 py-3 text-xs font-mono" style={{ color: TM }}>{p.base_url || p.baseUrl || '—'}</td>
+                    <td className="px-5 py-3 text-sm font-mono" style={{ color: TM, maxWidth: '200px' }}>
+                      <div className="truncate" title={p.model}>{p.model || '—'}</div>
+                    </td>
+                    <td className="px-5 py-3 text-xs font-mono" style={{ color: TM, maxWidth: '250px' }}>
+                      <div className="truncate opacity-60 hover:opacity-100" title={p.base_url || p.baseUrl}>{p.base_url || p.baseUrl || '—'}</div>
+                    </td>
                     <td className="px-5 py-3">
                       {p.configured || p.hasKey ? (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: '#d1fae5', color: '#065f46' }}>✓ Configured</span>

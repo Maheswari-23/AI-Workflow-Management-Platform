@@ -164,7 +164,7 @@ router.post('/:id/run', async (req, res) => {
             // Update run history with result
             dbRun(
               'UPDATE run_history SET status = ?, output = ?, duration_ms = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?',
-              ['completed', JSON.stringify(result.result), result.result.duration, runId]
+              ['completed', result.result.output, result.result.duration, runId]
             );
           }).catch(err => {
             console.error('Docker execution error:', err);

@@ -63,45 +63,80 @@ async function runAgent(agent, prompt, opencode, rawTools, previousOutput = '', 
   let agentLog = `\n--- Agent: ${agent.name} ---\n`;
   agentLog += `Prompt: ${userContent.slice(0, 200)}...\n`;
 
-  const responseData = await opencode.generate(messages, openCodeTools);
-  if (metrics && responseData?.usage) {
-    metrics.promptTokens += (responseData.usage.prompt_tokens || 0);
-    metrics.completionTokens += (responseData.usage.completion_tokens || 0);
+  console.log(`[Agent] Starting execution for agent: ${agent.name}`);
+  
+  let turns = 0;
+  const maxTurns = 10;
+  let finalContent = '';
+
+  while (turns < maxTurns) {
+    turns++;
+    console.log(`[Agent] ${agent.name} turn ${turns}...`);
+
+    // Add timeout wrapper for LLM call
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`LLM call timeout after 180 seconds for agent "${agent.name}"`)), 180000)
+    );
+    
+    const responseData = await Promise.race([
+      opencode.generate(messages, openCodeTools),
+      timeoutPromise
+    ]);
+    
+    if (metrics && responseData?.usage) {
+      metrics.promptTokens += (responseData.usage.prompt_tokens || 0);
+      metrics.completionTokens += (responseData.usage.completion_tokens || 0);
+    }
+
+    if (!responseData?.choices?.[0]) throw new Error(`Agent "${agent.name}" got invalid LLM response`);
+
+    const messageOut = responseData.choices[0].message;
+    messages.push(messageOut);
+
+    // If there is content, capture it (may be partial if followed by tool calls)
+    if (messageOut.content) {
+      finalContent = messageOut.content;
+      // If no tool calls, we are done
+      if (!messageOut.tool_calls || messageOut.tool_calls.length === 0) {
+        agentLog += `\nOutput:\n${finalContent}\n`;
+        break;
+      }
+    }
+
+    // Process tool calls
+    if (messageOut.tool_calls?.length > 0) {
+      agentLog += `\n[Turn ${turns}] Tool calls initiated:\n`;
+      for (const toolCall of messageOut.tool_calls) {
+        let args = {};
+        try { args = JSON.parse(toolCall.function.arguments); } catch(e) {}
+        agentLog += `  -> [${toolCall.function.name}] args: ${JSON.stringify(args)}\n`;
+        const toolResult = await executeTool(toolCall.function.name, args, rawTools, { agentId: agent.id });
+        agentLog += `  <- Result: ${String(toolResult).slice(0, 200)}\n`;
+        messages.push({ tool_call_id: toolCall.id, role: 'tool', name: toolCall.function.name, content: String(toolResult) });
+      }
+      // Continue to next turn to let model process tool results
+    } else {
+      // No tool calls and no content change? (rare)
+      if (!messageOut.content) {
+        finalContent = 'No output.';
+        agentLog += `\nOutput:\n${finalContent}\n`;
+      }
+      break; 
+    }
   }
 
-  if (!responseData?.choices?.[0]) throw new Error(`Agent "${agent.name}" got invalid LLM response`);
-
-  let messageOut = responseData.choices[0].message;
-  messages.push(messageOut);
-
-  if (messageOut.tool_calls?.length > 0) {
-    agentLog += `\n[Tool calls initiated]\n`;
-    for (const toolCall of messageOut.tool_calls) {
-      let args = {};
-      try { args = JSON.parse(toolCall.function.arguments); } catch(e) {}
-      agentLog += `  -> [${toolCall.function.name}] args: ${JSON.stringify(args)}\n`;
-      const toolResult = await executeTool(toolCall.function.name, args, rawTools);
-      agentLog += `  <- Result: ${String(toolResult).slice(0, 200)}\n`;
-      messages.push({ tool_call_id: toolCall.id, role: 'tool', name: toolCall.function.name, content: String(toolResult) });
-    }
-    const finalPass = await opencode.generate(messages);
-    if (metrics && finalPass?.usage) {
-      metrics.promptTokens += (finalPass.usage.prompt_tokens || 0);
-      metrics.completionTokens += (finalPass.usage.completion_tokens || 0);
-    }
-    const finalContent = finalPass?.choices?.[0]?.message?.content || 'No output.';
-    agentLog += `\nOutput:\n${finalContent}\n`;
-
-    // Save last run output to memory under a fixed key (overwrites previous)
-    await setAgentMemory(agent.id, 'last_run', finalContent.slice(0, 500));
-
-    return { log: agentLog, output: finalContent };
-  } else {
-    const content = messageOut.content || 'No output.';
-    agentLog += `\nOutput:\n${content}\n`;
-    await setAgentMemory(agent.id, 'last_run', content.slice(0, 500));
-    return { log: agentLog, output: content };
+  if (turns >= maxTurns) {
+    console.warn(`[Agent] ${agent.name} reached max turns (${maxTurns})`);
+    agentLog += `\n[Warning] Max execution turns reached.\n`;
   }
+
+  // Save detailed run info to memory
+  if (agent.id && agent.id !== 0) {
+    await setAgentMemory(agent.id, 'last_run_output', finalContent.slice(0, 1000));
+    await setAgentMemory(agent.id, 'last_run_time', new Date().toISOString());
+  }
+
+  return { log: agentLog, output: finalContent || 'No output.' };
 }
 
 // ─── Approval Gate ────────────────────────────────────────────────────────────
@@ -168,6 +203,7 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
 
   async function emit(line) {
     outputBuffer += line + '\n';
+    console.log(`[Task ${task.id}] ${line}`); // Add console logging for debugging
     broadcast('log', { runId, line, taskId: task.id });
     // Flush every 3 lines or immediately for important lines
     if (outputBuffer.split('\n').length > 3 || line.includes('===') || line.includes('Agent:')) {
@@ -179,6 +215,8 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
     const agentIds = typeof task.agents === 'string' ? JSON.parse(task.agents || '[]') : (task.agents || []);
     const workflowSteps = task.workflow_steps || '';
 
+    console.log(`[Workflow] Starting execution for task: ${task.name} (ID: ${task.id})`);
+    
     await emit(`=== Workflow Run Started ===`);
     await emit(`Task: ${task.name} | Trigger: ${triggerType} | Attempt: ${attempt}/${maxRetries + 1}`);
     await emit(`Time: ${new Date().toISOString()}`);
@@ -189,7 +227,9 @@ async function _executeRun(task, triggerType, scheduleId, attempt, runId, startT
       agents = await dbAll(`SELECT * FROM agents WHERE id IN (${agentIds.map(() => '?').join(',')})`, agentIds);
     }
 
+    console.log(`[Workflow] Loading LLM provider...`);
     const opencode = await getOpenCodeClient();
+    console.log(`[Workflow] LLM provider loaded: ${opencode.modelName}`);
     runMetrics.modelUsed = opencode.modelName || 'Unknown';
     const rawTools = await getDynamicTools();
 

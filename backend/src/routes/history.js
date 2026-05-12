@@ -79,4 +79,21 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// DOWNLOAD run logs as file
+router.get('/:id/download', async (req, res) => {
+  try {
+    const run = await dbGet('SELECT id, task_name, output, started_at FROM run_history WHERE id = ?', [req.params.id]);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    
+    const filename = `run-${run.id}-${(run.task_name || 'task').replace(/\s+/g, '-').toLowerCase()}.log`;
+    const content = run.output || 'No output recorded.';
+    
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(content);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
