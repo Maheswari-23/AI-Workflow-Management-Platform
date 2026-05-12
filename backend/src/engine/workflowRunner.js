@@ -21,6 +21,7 @@ async function getAgentMemory(agentId) {
 }
 
 async function setAgentMemory(agentId, key, value) {
+  if (!agentId || agentId === 0) return; // Skip for default/anonymous agents
   await dbRun(
     `INSERT INTO agent_memory (agent_id, key, value) VALUES (?, ?, ?)
      ON CONFLICT(agent_id, key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
